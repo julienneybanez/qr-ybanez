@@ -3,13 +3,41 @@ import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { COLORS } from '@/constants/colors';
+import {
+  getTeacherEventAttendance,
+  type TeacherEventAttendance,
+} from '@/lib/attendance';
 import { useAuth } from '@/lib/auth';
 import { getAttendanceHistory, type AttendanceRecord } from '@/lib/database';
+import { getProfile, type Role } from '@/lib/profiles';
 
 export default function HistoryScreen() {
   const { user } = useAuth();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<Role | null>(null);
+  const [studentRecords, setStudentRecords] = useState<AttendanceRecord[]>([]);
+  const [teacherEvents, setTeacherEvents] = useState<TeacherEventAttendance[]>([]);
+  
+  const load = useCallback(async () => {
+  if (!user) { setLoading(false); return; }
+
+  const profile = await getProfile(user.id);
+  const currentRole = profile?.role ?? 'student';
+  setRole(currentRole);
+
+  if (currentRole === 'teacher') {
+    const events = await getTeacherEventAttendance(user.id);
+    setTeacherEvents(events);
+    setStudentRecords([]);
+  } else {
+    const records = await getAttendanceHistory(user.id);
+    setStudentRecords(records);
+    setTeacherEvents([]);
+  }
+
+  setLoading(false);
+}, [user]);
 
   const loadHistory = useCallback(() => {
     const studentId = user?.id ?? 'unknown';
