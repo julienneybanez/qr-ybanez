@@ -1,11 +1,22 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
 import AppButton from '@/components/AppButton';
 import { COLORS } from '@/constants/colors';
 import { useAuth, signOut } from '@/lib/auth';
-import { getProfile, updateProfile, type Profile } from '@/lib/profiles';
+import {
+  getProfile,
+  updateProfile,
+  type Profile,
+} from '@/lib/profiles';
 
 export default function ProfileScreen() {
   const { user } = useAuth();
@@ -14,10 +25,10 @@ export default function ProfileScreen() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const loadProfile = useCallback(async () => {
     if (!user) return;
+
     const p = await getProfile(user.id);
     setProfile(p);
     setDraftName(p?.full_name ?? '');
@@ -31,27 +42,41 @@ export default function ProfileScreen() {
 
   const handleSaveName = async () => {
     if (!user) return;
+
     setSaving(true);
-    const { error } = await updateProfile(user.id, { full_name: draftName.trim() });
+
+    const { error } = await updateProfile(user.id, {
+      full_name: draftName.trim(),
+    });
+
     setSaving(false);
 
     if (error) {
       Alert.alert('Error', error);
     } else {
       setProfile((prev) =>
-        prev ? { ...prev, full_name: draftName.trim() } : prev
+        prev
+          ? {
+              ...prev,
+              full_name: draftName.trim(),
+            }
+          : prev
       );
+
       setEditing(false);
     }
   };
 
   const handleSignOut = async () => {
     setLoading(true);
+
     try {
       await signOut();
-      router.replace('/login');
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to sign out.');
+      Alert.alert(
+        'Error',
+        err?.message || 'Failed to sign out.'
+      );
     } finally {
       setLoading(false);
     }
@@ -59,21 +84,35 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>My Profile</Text>
+      <Text style={styles.title}>
+        My Profile
+      </Text>
 
       {user && (
         <View style={styles.infoCard}>
           {profile?.role === 'teacher' ? (
             <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeText}>Teacher</Text>
+              <Text style={styles.roleBadgeText}>
+                Teacher
+              </Text>
             </View>
           ) : (
-            <View style={[styles.roleBadge, styles.roleBadgeStudent]}>
-              <Text style={styles.roleBadgeText}>Student</Text>
+            <View
+              style={[
+                styles.roleBadge,
+                styles.roleBadgeStudent,
+              ]}
+            >
+              <Text style={styles.roleBadgeText}>
+                Student
+              </Text>
             </View>
           )}
 
-          <Text style={styles.label}>Name</Text>
+          <Text style={styles.label}>
+            Name
+          </Text>
+
           {editing ? (
             <View style={styles.nameEditRow}>
               <TextInput
@@ -81,9 +120,12 @@ export default function ProfileScreen() {
                 value={draftName}
                 onChangeText={setDraftName}
                 placeholder="Enter your name"
-                placeholderTextColor={COLORS.textSecondary}
+                placeholderTextColor={
+                  COLORS.textSecondary
+                }
                 editable={!saving}
               />
+
               <Pressable
                 style={styles.saveButton}
                 onPress={handleSaveName}
@@ -95,19 +137,36 @@ export default function ProfileScreen() {
               </Pressable>
             </View>
           ) : (
-            <Pressable onPress={() => setEditing(true)} style={styles.nameRow}>
+            <Pressable
+              onPress={() => setEditing(true)}
+              style={styles.nameRow}
+            >
               <Text style={styles.value}>
-                {profile?.full_name || 'Tap to add your name'}
+                {profile?.full_name ||
+                  'Tap to add your name'}
               </Text>
-              <Text style={styles.editHint}>Edit</Text>
+
+              <Text style={styles.editHint}>
+                Edit
+              </Text>
             </Pressable>
           )}
 
-          <Text style={styles.label}>Email</Text>
-          <Text style={styles.value}>{profile?.email ?? user.email}</Text>
+          <Text style={styles.label}>
+            Email
+          </Text>
 
-          <Text style={styles.label}>User ID</Text>
-          <Text style={styles.valueSmall}>{user.id}</Text>
+          <Text style={styles.value}>
+            {profile?.email ?? user.email}
+          </Text>
+
+          <Text style={styles.label}>
+            User ID
+          </Text>
+
+          <Text style={styles.valueSmall}>
+            {user.id}
+          </Text>
         </View>
       )}
 

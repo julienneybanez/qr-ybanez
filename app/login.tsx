@@ -11,7 +11,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
@@ -21,7 +21,7 @@ import { signIn } from '@/lib/auth';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -32,12 +32,13 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const { data, error: authError } = await signIn(email.trim(), password);
+      const { error: authError } = await signIn(
+        email.trim(),
+        password
+      );
 
       if (authError) {
         setError(authError.message);
-      } else {
-        router.replace('/(tabs)');
       }
     } catch (err: any) {
       setError(err?.message || 'Unexpected error');
@@ -63,11 +64,19 @@ export default function LoginScreen() {
               <Header title="QR Attendance" />
             </View>
 
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to record your attendance</Text>
+            <Text style={styles.title}>
+              Welcome Back
+            </Text>
+
+            <Text style={styles.subtitle}>
+              Sign in to record your attendance
+            </Text>
 
             <View style={styles.form}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>
+                Email
+              </Text>
+
               <TextInput
                 style={styles.input}
                 value={email}
@@ -79,7 +88,10 @@ export default function LoginScreen() {
                 editable={!loading}
               />
 
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>
+                Password
+              </Text>
+
               <TextInput
                 style={styles.input}
                 value={password}
@@ -90,10 +102,18 @@ export default function LoginScreen() {
                 editable={!loading}
               />
 
-              {error && <Text style={styles.error}>{error}</Text>}
+              {error && (
+                <Text style={styles.error}>
+                  {error}
+                </Text>
+              )}
 
               {loading ? (
-                <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />
+                <ActivityIndicator
+                  size="large"
+                  color={COLORS.primary}
+                  style={styles.loader}
+                />
               ) : (
                 <AppButton
                   theme="primary"

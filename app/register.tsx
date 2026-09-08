@@ -12,7 +12,7 @@ import {
   Keyboard,
   Pressable,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
@@ -22,9 +22,10 @@ import { signUp } from '@/lib/auth';
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<'student' | 'teacher'>('student');
+  const [role, setRole] =
+    useState<'student' | 'teacher'>('student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -35,7 +36,12 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     setError(null);
 
-    if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
+    if (
+      !fullName.trim() ||
+      !email.trim() ||
+      !password ||
+      !confirmPassword
+    ) {
       setError('All fields are required.');
       return;
     }
@@ -46,7 +52,9 @@ export default function RegisterScreen() {
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError(
+        'Password must be at least 6 characters.'
+      );
       return;
     }
 
@@ -56,20 +64,21 @@ export default function RegisterScreen() {
       const { data, error: authError } = await signUp(
         email.trim(),
         password,
-        { full_name: fullName.trim(), role }
+        {
+          full_name: fullName.trim(),
+          role,
+        }
       );
 
       if (authError) {
         setError(authError.message);
-      } else if (data.session) {
-        // Email confirmation is disabled, so a session exists right away.
-        router.replace('/(tabs)');
-      } else {
-        // Email confirmation is on — show the "check your email" message.
+      } else if (!data.session) {
         setSuccess(true);
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      setError(
+        'An unexpected error occurred. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -92,43 +101,66 @@ export default function RegisterScreen() {
               <Header title="QR Attendance" />
             </View>
 
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Register to start recording attendance</Text>
+            <Text style={styles.title}>
+              Create Account
+            </Text>
+
+            <Text style={styles.subtitle}>
+              Register to start recording attendance
+            </Text>
 
             {success ? (
               <View style={styles.successContainer}>
-                <Text style={styles.successTitle}>Check your email!</Text>
-                <Text style={styles.successText}>
-                  We sent a confirmation link to {email}. Click the link to verify your
-                  account, then come back and sign in.
+                <Text style={styles.successTitle}>
+                  Check your email!
                 </Text>
+
+                <Text style={styles.successText}>
+                  We sent a confirmation link to {email}.
+                  Click the link to verify your account,
+                  then come back and sign in.
+                </Text>
+
                 <Link href="/login" style={styles.link}>
                   Back to Sign In
                 </Link>
               </View>
             ) : (
               <View style={styles.form}>
-                <Text style={styles.label}>Full Name</Text>
+                <Text style={styles.label}>
+                  Full Name
+                </Text>
+
                 <TextInput
                   style={styles.input}
                   value={fullName}
                   onChangeText={setFullName}
                   placeholder="Enter your full name"
-                  placeholderTextColor={COLORS.textSecondary}
+                  placeholderTextColor={
+                    COLORS.textSecondary
+                  }
                   editable={!loading}
                 />
 
-                <Text style={styles.label}>I am a...</Text>
+                <Text style={styles.label}>
+                  I am a...
+                </Text>
+
                 <View style={styles.roleRow}>
                   <Pressable
-                    style={[styles.roleChip, role === 'student' && styles.roleChipActive]}
+                    style={[
+                      styles.roleChip,
+                      role === 'student' &&
+                        styles.roleChipActive,
+                    ]}
                     onPress={() => setRole('student')}
                     disabled={loading}
                   >
                     <Text
                       style={[
                         styles.roleChipText,
-                        role === 'student' && styles.roleChipTextActive,
+                        role === 'student' &&
+                          styles.roleChipTextActive,
                       ]}
                     >
                       Student
@@ -136,14 +168,19 @@ export default function RegisterScreen() {
                   </Pressable>
 
                   <Pressable
-                    style={[styles.roleChip, role === 'teacher' && styles.roleChipActive]}
+                    style={[
+                      styles.roleChip,
+                      role === 'teacher' &&
+                        styles.roleChipActive,
+                    ]}
                     onPress={() => setRole('teacher')}
                     disabled={loading}
                   >
                     <Text
                       style={[
                         styles.roleChipText,
-                        role === 'teacher' && styles.roleChipTextActive,
+                        role === 'teacher' &&
+                          styles.roleChipTextActive,
                       ]}
                     >
                       Teacher
@@ -151,44 +188,67 @@ export default function RegisterScreen() {
                   </Pressable>
                 </View>
 
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>
+                  Email
+                </Text>
+
                 <TextInput
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="your.email@school.edu"
-                  placeholderTextColor={COLORS.textSecondary}
+                  placeholderTextColor={
+                    COLORS.textSecondary
+                  }
                   autoCapitalize="none"
                   keyboardType="email-address"
                   editable={!loading}
                 />
 
-                <Text style={styles.label}>Password</Text>
+                <Text style={styles.label}>
+                  Password
+                </Text>
+
                 <TextInput
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="At least 6 characters"
-                  placeholderTextColor={COLORS.textSecondary}
+                  placeholderTextColor={
+                    COLORS.textSecondary
+                  }
                   secureTextEntry
                   editable={!loading}
                 />
 
-                <Text style={styles.label}>Confirm Password</Text>
+                <Text style={styles.label}>
+                  Confirm Password
+                </Text>
+
                 <TextInput
                   style={styles.input}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   placeholder="Re-enter your password"
-                  placeholderTextColor={COLORS.textSecondary}
+                  placeholderTextColor={
+                    COLORS.textSecondary
+                  }
                   secureTextEntry
                   editable={!loading}
                 />
 
-                {error && <Text style={styles.error}>{error}</Text>}
+                {error && (
+                  <Text style={styles.error}>
+                    {error}
+                  </Text>
+                )}
 
                 {loading ? (
-                  <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />
+                  <ActivityIndicator
+                    size="large"
+                    color={COLORS.primary}
+                    style={styles.loader}
+                  />
                 ) : (
                   <AppButton
                     theme="primary"
