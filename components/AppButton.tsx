@@ -23,7 +23,7 @@ export default function AppButton({
       <View
         style={[
           styles.buttonOuter,
-          { borderWidth: 3, borderColor: COLORS.primary, borderRadius: 18 },
+          { borderWidth: 1, borderColor: COLORS.primary, borderRadius: 10 },
           disabled && styles.disabled,
         ]}
       >
@@ -38,7 +38,7 @@ export default function AppButton({
             color={COLORS.textOnPrimary}
             style={styles.icon}
           />
-          <Text style={[styles.label, { color: COLORS.textOnPrimary }]}>
+          <Text style={[styles.label, { color: COLORS.textOnPrimary, fontWeight: '700'}]}>
             {title}
           </Text>
         </Pressable>
@@ -49,7 +49,7 @@ export default function AppButton({
   return (
     <View style={[styles.buttonOuter, disabled && styles.disabled]}>
       <Pressable
-        style={styles.buttonInner}
+        style={[styles.buttonInner, styles.secondaryFill]}
         onPress={onPress}
         disabled={disabled}
       >
@@ -71,18 +71,17 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   buttonInner: {
-    borderRadius: 14,
+    borderRadius: 10,
     paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+  },
+  secondaryFill: {
     backgroundColor: COLORS.card,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   disabled: {
     opacity: 0.55,

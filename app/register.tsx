@@ -231,16 +231,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
     color: COLORS.textPrimary,
-    textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.textSecondary,
-    textAlign: 'center',
+    lineHeight: 21,
     marginBottom: 32,
   },
   form: {
@@ -255,12 +254,12 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: COLORS.card,
-    borderRadius: 14,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 15,
+    fontSize: 16,
     color: COLORS.textPrimary,
   },
   roleRow: {
@@ -272,7 +271,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.card,
@@ -281,7 +280,7 @@ const styles = StyleSheet.create({
   },
   roleChipActive: {
     borderColor: COLORS.primary,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '14',
   },
   roleChipText: {
     fontSize: 14,
@@ -289,12 +288,13 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   roleChipTextActive: {
-    color: COLORS.textOnPrimary,
+    color: COLORS.primary,
+    fontWeight: '700',
   },
   error: {
     fontSize: 14,
-    color: '#C62828',
-    textAlign: 'center',
+    color: COLORS.danger,
+    textAlign: 'left',
     marginTop: 12,
     marginBottom: 4,
   },

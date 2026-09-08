@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/lib/auth';
-import { registerAttendance } from '@/lib/database';
+import { registerAttendance } from '@/lib/attendance';
 
 import AppButton from '@/components/AppButton';
 import { COLORS } from '@/constants/colors';
