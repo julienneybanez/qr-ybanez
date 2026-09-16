@@ -108,20 +108,22 @@ export default function LoginScreen() {
                 </Text>
               )}
 
-              {loading ? (
-                <ActivityIndicator
-                  size="large"
-                  color={COLORS.primary}
-                  style={styles.loader}
-                />
-              ) : (
-                <AppButton
-                  theme="primary"
-                  title="Sign In"
-                  icon="log-in-outline"
-                  onPress={handleLogin}
-                />
-              )}
+              <View style={styles.signInContainer}>
+                {loading ? (
+                  <ActivityIndicator
+                    size="large"
+                    color={COLORS.primary}
+                    style={styles.loader}
+                  />
+                ) : (
+                  <AppButton
+                    theme="primary"
+                    title="Sign In"
+                    icon="log-in-outline"
+                    onPress={handleLogin}
+                  />
+                )}
+              </View>
             </View>
 
             <Link href="/register" style={styles.link}>
@@ -183,6 +185,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: COLORS.textPrimary,
+  },
+  signInContainer: {
+    marginTop: 16,
   },
   error: {
     fontSize: 14,
