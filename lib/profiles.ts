@@ -1,4 +1,6 @@
-import { supabase } from './supabase';
+import {
+  supabase,
+} from './supabase';
 
 export type Role =
   | 'student'
@@ -12,26 +14,69 @@ export type Profile = {
   student_id: string | null;
 };
 
+export type ProfileFetchResult = {
+  profile: Profile | null;
+  error: string | null;
+};
+
+export async function getProfileResult(
+  userId: string
+): Promise<ProfileFetchResult> {
+  try {
+    const {
+      data,
+      error,
+    } =
+      await supabase
+        .from('profiles')
+        .select(
+          'id, email, full_name, role, student_id'
+        )
+        .eq(
+          'id',
+          userId
+        )
+        .maybeSingle();
+
+    if (error) {
+      return {
+        profile: null,
+        error:
+          error.message ||
+          'Unable to load profile.',
+      };
+    }
+
+    return {
+      profile:
+        data
+          ? data as Profile
+          : null,
+
+      error: null,
+    };
+  } catch (error: any) {
+    return {
+      profile: null,
+
+      error:
+        error?.message ||
+        'Unable to load profile.',
+    };
+  }
+}
+
 export async function getProfile(
   userId: string
 ): Promise<Profile | null> {
-  const { data, error } =
-    await supabase
-      .from('profiles')
-      .select(
-        'id, email, full_name, role, student_id'
-      )
-      .eq('id', userId)
-      .maybeSingle();
+  const {
+    profile,
+  } =
+    await getProfileResult(
+      userId
+    );
 
-  if (
-    error ||
-    !data
-  ) {
-    return null;
-  }
-
-  return data as Profile;
+  return profile;
 }
 
 export async function updateProfile(
@@ -42,14 +87,20 @@ export async function updateProfile(
 ): Promise<{
   error: string | null;
 }> {
-  const { error } =
+  const {
+    error,
+  } =
     await supabase
       .from('profiles')
       .update(updates)
-      .eq('id', userId);
+      .eq(
+        'id',
+        userId
+      );
 
   return {
     error:
-      error?.message ?? null,
+      error?.message ??
+      null,
   };
 }

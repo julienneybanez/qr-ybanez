@@ -10,7 +10,10 @@ import type {
 import {
   clearProfileCache,
 } from './profile-cache';
-import { supabase } from './supabase';
+
+import {
+  supabase,
+} from './supabase';
 
 type AuthState = {
   session: Session | null;
@@ -20,9 +23,11 @@ type AuthState = {
 
 export type SignUpProfile = {
   full_name: string;
+
   role:
     | 'student'
     | 'teacher';
+
   student_id:
     | string
     | null;
@@ -36,12 +41,16 @@ let globalUser:
   | User
   | null = null;
 
-let globalLoading = false;
+let globalLoading = true;
+
+let version = 0;
 
 const listeners =
   new Set<() => void>();
 
 function notify() {
+  version += 1;
+
   listeners.forEach(
     (listener) => listener()
   );
@@ -58,7 +67,7 @@ function subscribe(
 }
 
 function getSnapshot() {
-  return globalSession;
+  return version;
 }
 
 export function setAuth(
@@ -71,9 +80,8 @@ export function setAuth(
     session?.user?.id ?? null;
 
   if (
-    previousUserId &&
     previousUserId !==
-      nextUserId
+    nextUserId
   ) {
     clearProfileCache();
   }
@@ -88,19 +96,67 @@ export function setAuth(
   notify();
 }
 
-export function useAuth(): AuthState {
-  const session =
-    useSyncExternalStore(
-      subscribe,
-      getSnapshot,
-      getSnapshot
+async function restoreSession() {
+  try {
+    const {
+      data,
+      error,
+    } =
+      await supabase.auth
+        .getSession();
+
+    if (error) {
+      console.warn(
+        'Unable to restore the saved session:',
+        error.message
+      );
+
+      setAuth(null);
+
+      return;
+    }
+
+    setAuth(
+      data.session ?? null
+    );
+  } catch (error) {
+    console.warn(
+      'Unable to restore the saved session:',
+      error
     );
 
+    setAuth(null);
+  }
+}
+
+/*
+ * Keep the in-memory auth state synchronized with Supabase.
+ *
+ * This covers sign-in, sign-out, token refreshes, and restored
+ * sessions without requiring every screen to manage auth state.
+ */
+supabase.auth.onAuthStateChange(
+  (_event, session) => {
+    setAuth(session);
+  }
+);
+
+/*
+ * Restore the persisted session once when this module is loaded.
+ * RootLayout keeps showing its loading state until this completes.
+ */
+void restoreSession();
+
+export function useAuth(): AuthState {
+  useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getSnapshot
+  );
+
   return {
-    session,
-    user:
-      session?.user ??
-      globalUser,
+    session: globalSession,
+    user: globalUser,
     loading: globalLoading,
   };
 }
@@ -110,34 +166,38 @@ export async function signUp(
   password: string,
   profile?: SignUpProfile
 ) {
-  const { data, error } =
-    await supabase.auth.signUp({
-      email,
-      password,
+  const {
+    data,
+    error,
+  } =
+    await supabase.auth
+      .signUp({
+        email,
+        password,
 
-      options: profile
-        ? {
-            data: {
-              full_name:
-                profile.full_name,
+        options: profile
+          ? {
+              data: {
+                full_name:
+                  profile.full_name,
 
-              role:
-                profile.role,
+                role:
+                  profile.role,
 
-              student_id:
-                profile.student_id,
-            },
-          }
-        : undefined,
-    });
+                student_id:
+                  profile.student_id,
+              },
+            }
+          : undefined,
+      });
 
   if (
     !error &&
     data.session
   ) {
-    clearProfileCache();
-
-    setAuth(data.session);
+    setAuth(
+      data.session
+    );
   }
 
   return {
@@ -150,7 +210,10 @@ export async function signIn(
   email: string,
   password: string
 ) {
-  const { data, error } =
+  const {
+    data,
+    error,
+  } =
     await supabase.auth
       .signInWithPassword({
         email,
@@ -161,9 +224,9 @@ export async function signIn(
     !error &&
     data.session
   ) {
-    clearProfileCache();
-
-    setAuth(data.session);
+    setAuth(
+      data.session
+    );
   }
 
   return {
@@ -173,15 +236,21 @@ export async function signIn(
 }
 
 export async function signOut() {
+  /*
+   * Clear the local UI immediately so private screens/data are
+   * no longer displayed while Supabase completes sign-out.
+   */
   clearProfileCache();
 
   setAuth(null);
 
-  supabase.auth
-    .signOut()
-    .catch(() => {});
+  const {
+    error,
+  } =
+    await supabase.auth
+      .signOut();
 
   return {
-    error: null,
+    error,
   };
 }
