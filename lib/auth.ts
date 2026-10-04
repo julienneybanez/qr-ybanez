@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
-import { supabase } from './supabase';
 import type { Session, User } from '@supabase/supabase-js';
+
+import { supabase } from './supabase';
 
 type AuthState = {
   session: Session | null;
@@ -17,7 +18,7 @@ let globalSession: Session | null = null;
 let globalUser: User | null = null;
 let globalLoading = false;
 
-let listeners: Set<() => void> = new Set();
+const listeners: Set<() => void> = new Set();
 
 function notify() {
   listeners.forEach((listener) => listener());
@@ -65,19 +66,15 @@ export async function signUp(
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: profile
+      ? {
+          data: {
+            full_name: profile.full_name,
+            role: profile.role,
+          },
+        }
+      : undefined,
   });
-
-  if (!error && data.session && profile) {
-    // The Phase 3 trigger creates the profile row on signup.
-    // Fill in the full_name and role the student chose.
-    await supabase
-      .from('profiles')
-      .update({
-        full_name: profile.full_name,
-        role: profile.role,
-      })
-      .eq('id', data.session.user.id);
-  }
 
   if (!error && data.session) {
     setAuth(data.session);

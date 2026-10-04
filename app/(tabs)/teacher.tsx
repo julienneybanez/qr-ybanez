@@ -6,6 +6,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -20,18 +21,18 @@ import QRCode from 'react-native-qrcode-svg';
 import AppButton from '@/components/AppButton';
 import { COLORS } from '@/constants/colors';
 import { useAuth } from '@/lib/auth';
-import { createEvent } from '@/lib/events';
-import { getProfile, type Role } from '@/lib/profiles';
+import {
+  closeEvent,
+  createEvent,
+  getEventsByTeacher,
+  updateEvent,
+  type CloudEvent,
+} from '@/lib/events';
+import {
+  getProfile,
+  type Role,
+} from '@/lib/profiles';
 import { buildQRPayload } from '@/lib/qr';
-
-function toLocalISO(date: Date) {
-  const pad = (n: number) => String(n).padStart(2, '0');
-
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}:00`
-  );
-}
 
 function formatDateTime(date: Date) {
   return date.toLocaleString(undefined, {
@@ -43,10 +44,76 @@ function formatDateTime(date: Date) {
   });
 }
 
+function parseEventDate(
+  value: string | null,
+  fallback: Date
+) {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = new Date(value);
+
+  return Number.isNaN(parsed.getTime())
+    ? fallback
+    : parsed;
+}
+
+type EventDisplayStatus =
+  | 'Upcoming'
+  | 'Ongoing'
+  | 'Ended'
+  | 'Closed';
+
+function getEventDisplayStatus(
+  event: CloudEvent
+): EventDisplayStatus {
+  if (event.status === 'closed') {
+    return 'Closed';
+  }
+
+  const now = Date.now();
+
+  const startTime = event.start_time
+    ? new Date(event.start_time).getTime()
+    : null;
+
+  const endTime = event.end_time
+    ? new Date(event.end_time).getTime()
+    : null;
+
+  if (
+    startTime !== null &&
+    Number.isFinite(startTime) &&
+    now < startTime
+  ) {
+    return 'Upcoming';
+  }
+
+  if (
+    endTime !== null &&
+    Number.isFinite(endTime) &&
+    now > endTime
+  ) {
+    return 'Ended';
+  }
+
+  return 'Ongoing';
+}
+
 const QUICK_END_OPTIONS = [
-  { label: '+30 min', ms: 30 * 60 * 1000 },
-  { label: '+1 hour', ms: 60 * 60 * 1000 },
-  { label: '+2 hours', ms: 2 * 60 * 60 * 1000 },
+  {
+    label: '+30 min',
+    ms: 30 * 60 * 1000,
+  },
+  {
+    label: '+1 hour',
+    ms: 60 * 60 * 1000,
+  },
+  {
+    label: '+2 hours',
+    ms: 2 * 60 * 60 * 1000,
+  },
 ];
 
 type EditTarget = 'start' | 'end';
@@ -55,39 +122,124 @@ type MessageType = 'success' | 'error';
 export default function TeacherScreen() {
   const { user } = useAuth();
 
-  const [role, setRole] = useState<Role | null>(null);
-  const [roleLoading, setRoleLoading] = useState(true);
+  const [role, setRole] =
+    useState<Role | null>(null);
+
+  const [roleLoading, setRoleLoading] =
+    useState(true);
+
+  const [
+    eventsLoading,
+    setEventsLoading,
+  ] = useState(false);
+
+  const [events, setEvents] = useState<
+    CloudEvent[]
+  >([]);
+
+  const [
+    editingEvent,
+    setEditingEvent,
+  ] = useState<CloudEvent | null>(null);
+
   const [title, setTitle] = useState('');
   const [eventId, setEventId] = useState('');
-  const [startDate, setStartDate] = useState(() => new Date());
+  const [venue, setVenue] = useState('');
+  const [
+    description,
+    setDescription,
+  ] = useState('');
+
+  const [startDate, setStartDate] =
+    useState(() => new Date());
+
   const [endDate, setEndDate] = useState(
-    () => new Date(Date.now() + 60 * 60 * 1000)
+    () =>
+      new Date(
+        Date.now() + 60 * 60 * 1000
+      )
   );
-  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
-  const [editingPart, setEditingPart] = useState<'date' | 'time'>('date');
-  const [payload, setPayload] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [messageType, setMessageType] =
-    useState<MessageType>('success');
+
+  const [editTarget, setEditTarget] =
+    useState<EditTarget | null>(null);
+
+  const [
+    editingPart,
+    setEditingPart,
+  ] = useState<'date' | 'time'>('date');
+
+  const [qrEvent, setQrEvent] =
+    useState<CloudEvent | null>(null);
+
+  const [message, setMessage] =
+    useState<string | null>(null);
+
+  const [
+    messageType,
+    setMessageType,
+  ] = useState<MessageType>('success');
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const loadTeacherEvents =
+    useCallback(async () => {
+      if (!user) {
+        return;
+      }
+
+      setEventsLoading(true);
+
+      const rows =
+        await getEventsByTeacher(
+          user.id
+        );
+
+      setEvents(rows);
+      setEventsLoading(false);
+    }, [user]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
 
-      if (!user) {
+      async function load() {
+        if (!user) {
+          setRoleLoading(false);
+          return;
+        }
+
+        const profile =
+          await getProfile(user.id);
+
+        if (!active) {
+          return;
+        }
+
+        const currentRole =
+          profile?.role ?? 'student';
+
+        setRole(currentRole);
         setRoleLoading(false);
 
-        return () => {
-          active = false;
-        };
+        if (
+          currentRole === 'teacher'
+        ) {
+          setEventsLoading(true);
+
+          const rows =
+            await getEventsByTeacher(
+              user.id
+            );
+
+          if (active) {
+            setEvents(rows);
+            setEventsLoading(false);
+          }
+        }
       }
 
-      getProfile(user.id).then((profile) => {
-        if (!active) return;
-
-        setRole(profile?.role ?? 'student');
-        setRoleLoading(false);
-      });
+      load();
 
       return () => {
         active = false;
@@ -95,9 +247,33 @@ export default function TeacherScreen() {
     }, [user])
   );
 
-  const isAndroid = Platform.OS === 'android';
+  const isAndroid =
+    Platform.OS === 'android';
 
-  const openPicker = (target: EditTarget) => {
+  const resetForm = () => {
+    const now = new Date();
+
+    setEditingEvent(null);
+    setTitle('');
+    setEventId('');
+    setVenue('');
+    setDescription('');
+    setStartDate(now);
+
+    setEndDate(
+      new Date(
+        now.getTime() +
+          60 * 60 * 1000
+      )
+    );
+
+    setEditTarget(null);
+    setEditingPart('date');
+  };
+
+  const openPicker = (
+    target: EditTarget
+  ) => {
     setMessage(null);
     setEditTarget(target);
     setEditingPart('date');
@@ -107,29 +283,59 @@ export default function TeacherScreen() {
     event: DateTimePickerEvent,
     selected?: Date
   ) => {
-    if (!editTarget) return;
+    if (!editTarget) {
+      return;
+    }
 
-    if (event.type === 'dismissed' || !selected) {
+    if (
+      event.type === 'dismissed' ||
+      !selected
+    ) {
       setEditTarget(null);
       setEditingPart('date');
       return;
     }
 
-    const current = editTarget === 'start' ? startDate : endDate;
+    const current =
+      editTarget === 'start'
+        ? startDate
+        : endDate;
+
     const next = new Date(current);
 
-    next.setFullYear(
-      selected.getFullYear(),
-      selected.getMonth(),
-      selected.getDate()
-    );
+    if (
+      isAndroid &&
+      editingPart === 'date'
+    ) {
+      next.setFullYear(
+        selected.getFullYear(),
+        selected.getMonth(),
+        selected.getDate()
+      );
+    } else if (
+      isAndroid &&
+      editingPart === 'time'
+    ) {
+      next.setHours(
+        selected.getHours(),
+        selected.getMinutes(),
+        0,
+        0
+      );
+    } else {
+      next.setFullYear(
+        selected.getFullYear(),
+        selected.getMonth(),
+        selected.getDate()
+      );
 
-    next.setHours(
-      selected.getHours(),
-      selected.getMinutes(),
-      0,
-      0
-    );
+      next.setHours(
+        selected.getHours(),
+        selected.getMinutes(),
+        0,
+        0
+      );
+    }
 
     if (editTarget === 'start') {
       setStartDate(next);
@@ -137,7 +343,10 @@ export default function TeacherScreen() {
       setEndDate(next);
     }
 
-    if (isAndroid && editingPart === 'date') {
+    if (
+      isAndroid &&
+      editingPart === 'date'
+    ) {
       setEditingPart('time');
     } else {
       setEditTarget(null);
@@ -145,42 +354,270 @@ export default function TeacherScreen() {
     }
   };
 
-  const handleQuickEnd = (ms: number) => {
+  const handleQuickEnd = (
+    ms: number
+  ) => {
     setMessage(null);
-    setEndDate(new Date(startDate.getTime() + ms));
+
+    setEndDate(
+      new Date(
+        startDate.getTime() + ms
+      )
+    );
   };
 
-  const handleCreateEvent = async () => {
-    const event = {
-      eventId: eventId.trim(),
-      title: title.trim(),
-      start: toLocalISO(startDate),
-      end: toLocalISO(endDate),
+  const validateForm = () => {
+    if (
+      !title.trim() ||
+      !eventId.trim()
+    ) {
+      setMessageType('error');
+      setMessage(
+        'Event title and code are required.'
+      );
+
+      return false;
+    }
+
+    if (!venue.trim()) {
+      setMessageType('error');
+      setMessage(
+        'Venue is required.'
+      );
+
+      return false;
+    }
+
+    if (
+      endDate.getTime() <=
+      startDate.getTime()
+    ) {
+      setMessageType('error');
+
+      setMessage(
+        'End time must be after start time.'
+      );
+
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSaveEvent =
+    async () => {
+      setMessage(null);
+
+      if (!validateForm()) {
+        return;
+      }
+
+      setSaving(true);
+
+      if (editingEvent) {
+        const { data, error } =
+          await updateEvent(
+            editingEvent.id,
+            {
+              title: title.trim(),
+              venue: venue.trim(),
+              description:
+                description.trim(),
+              start:
+                startDate.toISOString(),
+              end:
+                endDate.toISOString(),
+            }
+          );
+
+        setSaving(false);
+
+        if (error || !data) {
+          setMessageType('error');
+
+          setMessage(
+            error ||
+              'Could not update the event.'
+          );
+
+          return;
+        }
+
+        setMessageType('success');
+        setMessage('Event updated.');
+        setQrEvent(data);
+
+        resetForm();
+
+        await loadTeacherEvents();
+
+        return;
+      }
+
+      const { data, error } =
+        await createEvent({
+          eventId: eventId.trim(),
+          title: title.trim(),
+          venue: venue.trim(),
+          description:
+            description.trim(),
+          start:
+            startDate.toISOString(),
+          end:
+            endDate.toISOString(),
+        });
+
+      setSaving(false);
+
+      if (error || !data) {
+        setMessageType('error');
+
+        if (
+          error
+            ?.toLowerCase()
+            .includes('duplicate') ||
+          error
+            ?.toLowerCase()
+            .includes('unique')
+        ) {
+          setMessage(
+            'That event code is already in use.'
+          );
+        } else {
+          setMessage(
+            error ||
+              'Could not save the event.'
+          );
+        }
+
+        return;
+      }
+
+      setMessageType('success');
+
+      setMessage(
+        'Event saved. Your QR code is ready below.'
+      );
+
+      setQrEvent(data);
+
+      await loadTeacherEvents();
     };
 
-    if (!event.eventId || !event.title) {
+  const handleEdit = (
+    event: CloudEvent
+  ) => {
+    const now = new Date();
+
+    const fallbackEnd = new Date(
+      now.getTime() +
+        60 * 60 * 1000
+    );
+
+    setEditingEvent(event);
+    setEventId(event.event_code);
+    setTitle(event.title);
+    setVenue(event.venue ?? '');
+
+    setDescription(
+      event.description ?? ''
+    );
+
+    setStartDate(
+      parseEventDate(
+        event.start_time,
+        now
+      )
+    );
+
+    setEndDate(
+      parseEventDate(
+        event.end_time,
+        fallbackEnd
+      )
+    );
+
+    setQrEvent(null);
+    setMessage(null);
+  };
+
+  const handleShowQr = (
+    event: CloudEvent
+  ) => {
+    const displayStatus =
+      getEventDisplayStatus(event);
+
+    if (
+      displayStatus === 'Closed' ||
+      displayStatus === 'Ended'
+    ) {
       setMessageType('error');
-      setMessage('Event title and code are required.');
+
+      setMessage(
+        displayStatus === 'Closed'
+          ? 'Closed events cannot accept attendance.'
+          : 'Ended events can no longer accept attendance.'
+      );
+
       return;
     }
 
-    if (endDate.getTime() <= startDate.getTime()) {
-      setMessageType('error');
-      setMessage('End time must be after start time.');
-      return;
-    }
+    setQrEvent(event);
+    setMessage(null);
+  };
 
-    const { error } = await createEvent(event);
+  const handleCloseEvent = (
+    event: CloudEvent
+  ) => {
+    Alert.alert(
+      'Close event?',
+      `${event.title} will stop accepting attendance scans.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Close Event',
+          style: 'destructive',
 
-    if (error) {
-      setMessageType('error');
-      setMessage('Could not save the event. Please try again.');
-      return;
-    }
+          onPress: async () => {
+            const { error } =
+              await closeEvent(
+                event.id
+              );
 
-    setMessageType('success');
-    setMessage('Event saved. Your QR code is ready below.');
-    setPayload(buildQRPayload(event));
+            if (error) {
+              setMessageType(
+                'error'
+              );
+
+              setMessage(
+                'Could not close the event.'
+              );
+
+              return;
+            }
+
+            if (
+              qrEvent?.id === event.id
+            ) {
+              setQrEvent(null);
+            }
+
+            setMessageType(
+              'success'
+            );
+
+            setMessage(
+              'Event closed.'
+            );
+
+            await loadTeacherEvents();
+          },
+        },
+      ]
+    );
   };
 
   if (roleLoading) {
@@ -220,29 +657,42 @@ export default function TeacherScreen() {
         </Text>
 
         <Text style={styles.stateText}>
-          Only teacher accounts can create event QR codes.
+          Only teacher accounts can manage events.
         </Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top']}
+    >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={
+          styles.content
+        }
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          false
+        }
       >
         <Text style={styles.title}>
-          Create Event
+          {editingEvent
+            ? 'Edit Event'
+            : 'Create Event'}
         </Text>
 
         <Text style={styles.subtitle}>
-          Add the event details and generate a QR code for attendance.
+          {editingEvent
+            ? 'Update the event details below.'
+            : 'Create an event and generate its attendance QR code.'}
         </Text>
 
-        <Text style={styles.sectionLabel}>
+        <Text
+          style={styles.sectionLabel}
+        >
           Event details
         </Text>
 
@@ -256,7 +706,10 @@ export default function TeacherScreen() {
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. Founders Day Assembly"
-            placeholderTextColor={COLORS.textSecondary}
+            placeholderTextColor={
+              COLORS.textSecondary
+            }
+            editable={!saving}
           />
 
           <Text style={styles.label}>
@@ -264,63 +717,151 @@ export default function TeacherScreen() {
           </Text>
 
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              editingEvent &&
+                styles.inputDisabled,
+            ]}
             value={eventId}
             onChangeText={setEventId}
             placeholder="e.g. EVT-2026-0002"
-            placeholderTextColor={COLORS.textSecondary}
+            placeholderTextColor={
+              COLORS.textSecondary
+            }
             autoCapitalize="characters"
+            editable={
+              !editingEvent &&
+              !saving
+            }
+          />
+
+          {editingEvent ? (
+            <Text
+              style={styles.fieldHint}
+            >
+              Event codes stay the same after creation so existing QR codes remain valid.
+            </Text>
+          ) : null}
+
+          <Text style={styles.label}>
+            Venue
+          </Text>
+
+          <TextInput
+            style={styles.input}
+            value={venue}
+            onChangeText={setVenue}
+            placeholder="e.g. School Gymnasium"
+            placeholderTextColor={
+              COLORS.textSecondary
+            }
+            editable={!saving}
+          />
+
+          <Text style={styles.label}>
+            Description
+          </Text>
+
+          <TextInput
+            style={[
+              styles.input,
+              styles.multilineInput,
+            ]}
+            value={description}
+            onChangeText={
+              setDescription
+            }
+            placeholder="Add event details or instructions"
+            placeholderTextColor={
+              COLORS.textSecondary
+            }
+            multiline
+            textAlignVertical="top"
+            editable={!saving}
           />
         </View>
 
-        <Text style={styles.sectionLabel}>
+        <Text
+          style={styles.sectionLabel}
+        >
           Schedule
         </Text>
 
         <View style={styles.card}>
           <PickerField
             label="Starts"
-            value={formatDateTime(startDate)}
+            value={formatDateTime(
+              startDate
+            )}
             icon="sunny-outline"
-            onPress={() => openPicker('start')}
+            onPress={() =>
+              openPicker('start')
+            }
           />
 
           <View style={styles.divider} />
 
           <PickerField
             label="Ends"
-            value={formatDateTime(endDate)}
+            value={formatDateTime(
+              endDate
+            )}
             icon="moon-outline"
-            onPress={() => openPicker('end')}
+            onPress={() =>
+              openPicker('end')
+            }
           />
 
-          <Text style={styles.quickLabel}>
-            Quick duration
+          <Text
+            style={styles.quickLabel}
+          >
+            Duration
           </Text>
 
           <View style={styles.chipRow}>
-            {QUICK_END_OPTIONS.map((option) => (
-              <Pressable
-                key={option.label}
-                style={({ pressed }) => [
-                  styles.chip,
-                  pressed && styles.pressed,
-                ]}
-                onPress={() => handleQuickEnd(option.ms)}
-              >
-                <Text style={styles.chipText}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            ))}
+            {QUICK_END_OPTIONS.map(
+              (option) => (
+                <Pressable
+                  key={
+                    option.label
+                  }
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.chip,
+                    pressed &&
+                      styles.pressed,
+                  ]}
+                  onPress={() =>
+                    handleQuickEnd(
+                      option.ms
+                    )
+                  }
+                  disabled={saving}
+                >
+                  <Text
+                    style={
+                      styles.chipText
+                    }
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              )
+            )}
           </View>
         </View>
 
-        {editTarget && (
-          <View style={styles.pickerContainer}>
+        {editTarget ? (
+          <View
+            style={
+              styles.pickerContainer
+            }
+          >
             <DateTimePicker
               value={
-                editTarget === 'start'
+                editTarget ===
+                'start'
                   ? startDate
                   : endDate
               }
@@ -334,29 +875,34 @@ export default function TeacherScreen() {
                   ? 'default'
                   : 'spinner'
               }
-              onChange={onPickerChange}
+              onChange={
+                onPickerChange
+              }
             />
           </View>
-        )}
+        ) : null}
 
         {message ? (
           <View
             style={[
               styles.messageBox,
-              messageType === 'success'
+              messageType ===
+              'success'
                 ? styles.successBox
                 : styles.errorBox,
             ]}
           >
             <Ionicons
               name={
-                messageType === 'success'
+                messageType ===
+                'success'
                   ? 'checkmark-circle-outline'
                   : 'alert-circle-outline'
               }
               size={20}
               color={
-                messageType === 'success'
+                messageType ===
+                'success'
                   ? COLORS.success
                   : COLORS.danger
               }
@@ -367,7 +913,8 @@ export default function TeacherScreen() {
                 styles.messageText,
                 {
                   color:
-                    messageType === 'success'
+                    messageType ===
+                    'success'
                       ? COLORS.success
                       : COLORS.danger,
                 },
@@ -380,41 +927,172 @@ export default function TeacherScreen() {
 
         <AppButton
           theme="primary"
-          title="Create Event"
-          icon="add-circle-outline"
-          onPress={handleCreateEvent}
+          title={
+            saving
+              ? 'Saving...'
+              : editingEvent
+                ? 'Save Changes'
+                : 'Create Event'
+          }
+          icon={
+            editingEvent
+              ? 'save-outline'
+              : 'add-circle-outline'
+          }
+          onPress={handleSaveEvent}
+          disabled={saving}
         />
 
-        {payload ? (
+        {editingEvent ? (
+          <AppButton
+            variant="secondary"
+            title="Cancel Editing"
+            icon="close-outline"
+            onPress={resetForm}
+            disabled={saving}
+          />
+        ) : null}
+
+        {qrEvent ? (
           <View style={styles.qrCard}>
-            <Text style={styles.qrTitle}>
+            <Text
+              style={styles.qrTitle}
+            >
               Event QR
             </Text>
 
-            <Text style={styles.qrSubtitle}>
+            <Text
+              style={
+                styles.qrSubtitle
+              }
+            >
               Students can scan this code from the Scan tab.
             </Text>
 
             <View style={styles.qrBox}>
               <QRCode
-                value={payload}
+                value={buildQRPayload({
+                  eventId:
+                    qrEvent.event_code,
+                })}
                 size={200}
               />
             </View>
 
-            <Text style={styles.qrEventTitle}>
-              {title.trim()}
+            <Text
+              style={
+                styles.qrEventTitle
+              }
+            >
+              {qrEvent.title}
             </Text>
 
-            <Text style={styles.qrEventCode}>
-              {eventId.trim()}
+            <Text
+              style={
+                styles.qrEventCode
+              }
+            >
+              {qrEvent.event_code}
             </Text>
 
-            <Text style={styles.qrSchedule}>
-              {formatDateTime(startDate)} – {formatDateTime(endDate)}
-            </Text>
+            {qrEvent.venue ? (
+              <Text
+                style={
+                  styles.qrSchedule
+                }
+              >
+                {qrEvent.venue}
+              </Text>
+            ) : null}
+
+            {qrEvent.start_time &&
+            qrEvent.end_time ? (
+              <Text
+                style={
+                  styles.qrSchedule
+                }
+              >
+                {formatDateTime(
+                  new Date(
+                    qrEvent.start_time
+                  )
+                )}{' '}
+                –{' '}
+                {formatDateTime(
+                  new Date(
+                    qrEvent.end_time
+                  )
+                )}
+              </Text>
+            ) : null}
           </View>
         ) : null}
+
+        <View
+          style={styles.eventsHeader}
+        >
+          <Text
+            style={styles.eventsTitle}
+          >
+            My Events
+          </Text>
+
+          <Text
+            style={
+              styles.eventsSubtitle
+            }
+          >
+            View, edit, close, or display an event QR.
+          </Text>
+        </View>
+
+        {eventsLoading ? (
+          <ActivityIndicator
+            size="small"
+            color={COLORS.primary}
+            style={styles.eventsLoader}
+          />
+        ) : events.length === 0 ? (
+          <View
+            style={styles.emptyCard}
+          >
+            <Ionicons
+              name="calendar-outline"
+              size={27}
+              color={COLORS.primary}
+            />
+
+            <Text
+              style={styles.emptyTitle}
+            >
+              No events yet
+            </Text>
+
+            <Text
+              style={styles.emptyText}
+            >
+              Your created events will appear here.
+            </Text>
+          </View>
+        ) : (
+          events.map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              onEdit={() =>
+                handleEdit(event)
+              }
+              onShowQr={() =>
+                handleShowQr(event)
+              }
+              onClose={() =>
+                handleCloseEvent(
+                  event
+                )
+              }
+            />
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -441,7 +1119,9 @@ function PickerField({
       ]}
       onPress={onPress}
     >
-      <View style={styles.pickerIcon}>
+      <View
+        style={styles.pickerIcon}
+      >
         <Ionicons
           name={icon}
           size={19}
@@ -449,12 +1129,18 @@ function PickerField({
         />
       </View>
 
-      <View style={styles.pickerText}>
-        <Text style={styles.pickerLabel}>
+      <View
+        style={styles.pickerText}
+      >
+        <Text
+          style={styles.pickerLabel}
+        >
           {label}
         </Text>
 
-        <Text style={styles.pickerValue}>
+        <Text
+          style={styles.pickerValue}
+        >
           {value}
         </Text>
       </View>
@@ -468,25 +1154,240 @@ function PickerField({
   );
 }
 
+function EventCard({
+  event,
+  onEdit,
+  onShowQr,
+  onClose,
+}: {
+  event: CloudEvent;
+  onEdit: () => void;
+  onShowQr: () => void;
+  onClose: () => void;
+}) {
+  const displayStatus =
+    getEventDisplayStatus(event);
+
+  const canShowQr =
+    displayStatus === 'Upcoming' ||
+    displayStatus === 'Ongoing';
+
+  const canClose =
+    displayStatus === 'Upcoming' ||
+    displayStatus === 'Ongoing';
+
+  const badgeStyle =
+    displayStatus === 'Ongoing'
+      ? styles.ongoingBadge
+      : displayStatus === 'Upcoming'
+        ? styles.upcomingBadge
+        : styles.inactiveBadge;
+
+  const badgeTextColor =
+    displayStatus === 'Ongoing'
+      ? COLORS.success
+      : displayStatus === 'Upcoming'
+        ? COLORS.warning
+        : COLORS.textSecondary;
+
+  return (
+    <View style={styles.eventCard}>
+      <View
+        style={styles.eventCardTop}
+      >
+        <View
+          style={styles.eventCardText}
+        >
+          <Text
+            style={
+              styles.eventCardTitle
+            }
+          >
+            {event.title}
+          </Text>
+
+          <Text
+            style={
+              styles.eventCardCode
+            }
+          >
+            {event.event_code}
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.statusBadge,
+            badgeStyle,
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              {
+                color:
+                  badgeTextColor,
+              },
+            ]}
+          >
+            {displayStatus}
+          </Text>
+        </View>
+      </View>
+
+      {event.venue ? (
+        <View
+          style={styles.eventMetaRow}
+        >
+          <Ionicons
+            name="location-outline"
+            size={16}
+            color={
+              COLORS.textSecondary
+            }
+          />
+
+          <Text
+            style={styles.eventMeta}
+          >
+            {event.venue}
+          </Text>
+        </View>
+      ) : null}
+
+      {event.start_time ? (
+        <View
+          style={styles.eventMetaRow}
+        >
+          <Ionicons
+            name="time-outline"
+            size={16}
+            color={
+              COLORS.textSecondary
+            }
+          />
+
+          <Text
+            style={styles.eventMeta}
+          >
+            {formatDateTime(
+              new Date(
+                event.start_time
+              )
+            )}
+          </Text>
+        </View>
+      ) : null}
+
+      {event.description ? (
+        <Text
+          style={
+            styles.eventDescription
+          }
+        >
+          {event.description}
+        </Text>
+      ) : null}
+
+      <View
+        style={styles.eventActions}
+      >
+        <SmallAction
+          label="Edit"
+          icon="create-outline"
+          onPress={onEdit}
+        />
+
+        {canShowQr ? (
+          <SmallAction
+            label="QR"
+            icon="qr-code-outline"
+            onPress={onShowQr}
+          />
+        ) : null}
+
+        {canClose ? (
+          <SmallAction
+            label="Close"
+            icon="close-circle-outline"
+            onPress={onClose}
+            danger
+          />
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function SmallAction({
+  label,
+  icon,
+  onPress,
+  danger = false,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  danger?: boolean;
+}) {
+  const color = danger
+    ? COLORS.danger
+    : COLORS.primary;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.smallAction,
+        danger &&
+          styles.smallActionDanger,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons
+        name={icon}
+        size={16}
+        color={color}
+      />
+
+      <Text
+        style={[
+          styles.smallActionText,
+          { color },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor:
+      COLORS.background,
   },
+
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor:
+      COLORS.background,
   },
+
   content: {
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 36,
   },
+
   title: {
     fontSize: 24,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
+
   subtitle: {
     marginTop: 4,
     marginBottom: 22,
@@ -494,6 +1395,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: COLORS.textSecondary,
   },
+
   sectionLabel: {
     marginBottom: 8,
     fontSize: 12,
@@ -502,6 +1404,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
+
   card: {
     backgroundColor: COLORS.card,
     borderWidth: 1,
@@ -510,14 +1413,17 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 20,
   },
+
   label: {
     fontSize: 12,
     fontWeight: '700',
     color: COLORS.textSecondary,
     marginBottom: 6,
   },
+
   input: {
-    backgroundColor: COLORS.background,
+    backgroundColor:
+      COLORS.background,
     borderRadius: 11,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -527,39 +1433,63 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     marginBottom: 14,
   },
+
+  inputDisabled: {
+    opacity: 0.65,
+  },
+
+  multilineInput: {
+    minHeight: 92,
+  },
+
+  fieldHint: {
+    marginTop: -8,
+    marginBottom: 14,
+    fontSize: 11,
+    lineHeight: 16,
+    color: COLORS.textSecondary,
+  },
+
   pickerField: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 7,
   },
+
   pickerIcon: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: COLORS.primarySoft,
+    backgroundColor:
+      COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 11,
   },
+
   pickerText: {
     flex: 1,
   },
+
   pickerLabel: {
     fontSize: 11,
     color: COLORS.textSecondary,
     marginBottom: 2,
   },
+
   pickerValue: {
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.textPrimary,
   },
+
   divider: {
     height: 1,
     backgroundColor: COLORS.border,
     marginVertical: 8,
     marginLeft: 49,
   },
+
   quickLabel: {
     marginTop: 15,
     marginBottom: 8,
@@ -567,27 +1497,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textSecondary,
   },
+
   chipRow: {
     flexDirection: 'row',
     gap: 8,
     flexWrap: 'wrap',
   },
+
   chip: {
-    backgroundColor: COLORS.primarySoft,
+    backgroundColor:
+      COLORS.primarySoft,
     borderRadius: 999,
     paddingHorizontal: 13,
     paddingVertical: 7,
   },
+
   chipText: {
     fontSize: 12,
     fontWeight: '700',
     color: COLORS.primary,
   },
+
   pickerContainer: {
     marginTop: -8,
     marginBottom: 16,
     alignItems: 'center',
   },
+
   messageBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -597,18 +1533,24 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     marginBottom: 12,
   },
+
   successBox: {
-    backgroundColor: COLORS.successSoft,
+    backgroundColor:
+      COLORS.successSoft,
   },
+
   errorBox: {
-    backgroundColor: COLORS.dangerSoft,
+    backgroundColor:
+      COLORS.dangerSoft,
   },
+
   messageText: {
     flex: 1,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '600',
   },
+
   qrCard: {
     backgroundColor: COLORS.card,
     borderWidth: 1,
@@ -616,13 +1558,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     marginTop: 10,
+    marginBottom: 26,
     alignItems: 'center',
   },
+
   qrTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
+
   qrSubtitle: {
     marginTop: 4,
     marginBottom: 16,
@@ -630,24 +1575,28 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
+
   qrBox: {
     backgroundColor: '#FFFFFF',
     padding: 14,
     borderRadius: 12,
     marginBottom: 14,
   },
+
   qrEventTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: COLORS.textPrimary,
     textAlign: 'center',
   },
+
   qrEventCode: {
     marginTop: 3,
     fontSize: 12,
     color: COLORS.primary,
     fontWeight: '700',
   },
+
   qrSchedule: {
     marginTop: 6,
     fontSize: 11,
@@ -655,28 +1604,190 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
+
+  eventsHeader: {
+    marginTop: 10,
+    marginBottom: 12,
+  },
+
+  eventsTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+
+  eventsSubtitle: {
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.textSecondary,
+  },
+
+  eventsLoader: {
+    marginVertical: 24,
+  },
+
+  emptyCard: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    padding: 22,
+    alignItems: 'center',
+  },
+
+  emptyTitle: {
+    marginTop: 10,
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+
+  emptyText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+
+  eventCard: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    padding: 15,
+    marginBottom: 12,
+  },
+
+  eventCardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+
+  eventCardText: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  eventCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+
+  eventCardCode: {
+    marginTop: 3,
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  statusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    marginLeft: 10,
+  },
+
+  ongoingBadge: {
+    backgroundColor:
+      COLORS.successSoft,
+  },
+
+  upcomingBadge: {
+    backgroundColor:
+      COLORS.warningSoft,
+  },
+
+  inactiveBadge: {
+    backgroundColor:
+      COLORS.surface,
+  },
+
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  eventMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+
+  eventMeta: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+
+  eventDescription: {
+    marginTop: 10,
+    fontSize: 12,
+    lineHeight: 18,
+    color: COLORS.textSecondary,
+  },
+
+  eventActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+
+  smallAction: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 10,
+    backgroundColor:
+      COLORS.primarySoft,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
+
+  smallActionDanger: {
+    backgroundColor:
+      COLORS.dangerSoft,
+  },
+
+  smallActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
   stateScreen: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor:
+      COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
   },
+
   lockIcon: {
     width: 64,
     height: 64,
     borderRadius: 20,
-    backgroundColor: COLORS.primarySoft,
+    backgroundColor:
+      COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
   },
+
   stateTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: COLORS.textPrimary,
     marginBottom: 7,
   },
+
   stateText: {
     marginTop: 10,
     fontSize: 13,
@@ -684,6 +1795,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
+
   pressed: {
     opacity: 0.75,
   },
