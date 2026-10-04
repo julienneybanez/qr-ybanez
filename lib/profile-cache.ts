@@ -4,31 +4,21 @@ import {
 } from 'react';
 
 import {
-  getProfileResult,
+  getProfile,
   type Profile,
 } from './profiles';
 
-let cachedUserId:
-  | string
-  | null = null;
+let cachedUserId: string | null =
+  null;
 
-let cachedProfile:
-  | Profile
-  | null = null;
+let cachedProfile: Profile | null =
+  null;
 
 let initializedUserId:
   | string
   | null = null;
 
 let loadingUserId:
-  | string
-  | null = null;
-
-let errorUserId:
-  | string
-  | null = null;
-
-let cachedError:
   | string
   | null = null;
 
@@ -45,22 +35,17 @@ function notify() {
   version += 1;
 
   listeners.forEach(
-    (listener) =>
-      listener()
+    (listener) => listener()
   );
 }
 
 function subscribe(
   listener: () => void
 ) {
-  listeners.add(
-    listener
-  );
+  listeners.add(listener);
 
   return () => {
-    listeners.delete(
-      listener
-    );
+    listeners.delete(listener);
   };
 }
 
@@ -72,8 +57,7 @@ export function getCachedProfile(
   userId: string
 ) {
   if (
-    cachedUserId !==
-    userId
+    cachedUserId !== userId
   ) {
     return null;
   }
@@ -81,34 +65,11 @@ export function getCachedProfile(
   return cachedProfile;
 }
 
-export function getProfileCacheError(
-  userId: string
-) {
-  if (
-    errorUserId !==
-    userId
-  ) {
-    return null;
-  }
-
-  return cachedError;
-}
-
 export function hasCachedProfile(
   userId: string
 ) {
   return (
-    initializedUserId ===
-    userId
-  );
-}
-
-export function isProfileLoading(
-  userId: string
-) {
-  return (
-    loadingUserId ===
-    userId
+    initializedUserId === userId
   );
 }
 
@@ -118,8 +79,7 @@ export async function loadCachedProfile(
 ): Promise<Profile | null> {
   if (
     !force &&
-    initializedUserId ===
-      userId
+    initializedUserId === userId
   ) {
     return getCachedProfile(
       userId
@@ -127,115 +87,28 @@ export async function loadCachedProfile(
   }
 
   if (
-    loadingUserId ===
-      userId &&
+    loadingUserId === userId &&
     pendingRequest
   ) {
     return pendingRequest;
   }
 
-  loadingUserId =
-    userId;
-
-  /*
-   * Clear the previous error while a retry is running, but keep
-   * an already cached profile visible during background refreshes.
-   */
-  if (
-    errorUserId ===
-    userId
-  ) {
-    errorUserId =
-      null;
-
-    cachedError =
-      null;
-  }
-
-  notify();
+  loadingUserId = userId;
 
   const request =
-    getProfileResult(
-      userId
-    )
-      .then(
-        ({
-          profile,
-          error,
-        }) => {
-          if (
-            loadingUserId !==
-            userId
-          ) {
-            return profile;
-          }
-
-          loadingUserId =
-            null;
-
-          pendingRequest =
-            null;
-
-          initializedUserId =
-            userId;
-
-          if (error) {
-            errorUserId =
-              userId;
-
-            cachedError =
-              error;
-
-            /*
-             * If a profile was already cached, leave it intact.
-             * A temporary network failure should not blank the UI.
-             */
-            notify();
-
-            return (
-              getCachedProfile(
-                userId
-              )
-            );
-          }
-
+    getProfile(userId)
+      .then((profile) => {
+        if (
+          loadingUserId === userId
+        ) {
           cachedUserId =
             userId;
 
           cachedProfile =
             profile;
 
-          if (!profile) {
-            errorUserId =
-              userId;
-
-            cachedError =
-              'Profile record was not found.';
-          } else {
-            errorUserId =
-              null;
-
-            cachedError =
-              null;
-          }
-
-          notify();
-
-          return profile;
-        }
-      )
-      .catch(
-        (error: any) => {
-          if (
-            loadingUserId !==
-            userId
-          ) {
-            return (
-              getCachedProfile(
-                userId
-              )
-            );
-          }
+          initializedUserId =
+            userId;
 
           loadingUserId =
             null;
@@ -243,28 +116,31 @@ export async function loadCachedProfile(
           pendingRequest =
             null;
 
+          notify();
+        }
+
+        return profile;
+      })
+      .catch(() => {
+        if (
+          loadingUserId === userId
+        ) {
           initializedUserId =
             userId;
 
-          errorUserId =
-            userId;
+          loadingUserId =
+            null;
 
-          cachedError =
-            error?.message ||
-            'Unable to load profile.';
+          pendingRequest =
+            null;
 
           notify();
-
-          return (
-            getCachedProfile(
-              userId
-            )
-          );
         }
-      );
 
-  pendingRequest =
-    request;
+        return null;
+      });
+
+  pendingRequest = request;
 
   return request;
 }
@@ -283,8 +159,7 @@ export function patchCachedProfile(
   updates: Partial<Profile>
 ) {
   if (
-    cachedUserId !==
-      userId ||
+    cachedUserId !== userId ||
     !cachedProfile
   ) {
     return;
@@ -298,44 +173,21 @@ export function patchCachedProfile(
   initializedUserId =
     userId;
 
-  errorUserId =
-    null;
-
-  cachedError =
-    null;
-
   notify();
 }
 
 export function clearProfileCache() {
-  cachedUserId =
-    null;
-
-  cachedProfile =
-    null;
-
-  initializedUserId =
-    null;
-
-  loadingUserId =
-    null;
-
-  errorUserId =
-    null;
-
-  cachedError =
-    null;
-
-  pendingRequest =
-    null;
+  cachedUserId = null;
+  cachedProfile = null;
+  initializedUserId = null;
+  loadingUserId = null;
+  pendingRequest = null;
 
   notify();
 }
 
 export function useCachedProfile(
-  userId?:
-    | string
-    | null
+  userId?: string | null
 ) {
   useSyncExternalStore(
     subscribe,
@@ -360,31 +212,14 @@ export function useCachedProfile(
         )
       : null;
 
-  const error =
-    userId
-      ? getProfileCacheError(
-          userId
-        )
-      : null;
-
-  const loading =
-    Boolean(
-      userId &&
+  const loading = Boolean(
+    userId &&
       initializedUserId !==
         userId
-    );
-
-  const refreshing =
-    Boolean(
-      userId &&
-      loadingUserId ===
-        userId
-    );
+  );
 
   return {
     profile,
     loading,
-    refreshing,
-    error,
   };
 }
