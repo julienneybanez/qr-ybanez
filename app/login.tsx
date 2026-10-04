@@ -1,17 +1,19 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
   TouchableWithoutFeedback,
-  Keyboard,
+  View,
 } from 'react-native';
-import { Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
@@ -24,6 +26,7 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -48,7 +51,12 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top },
+      ]}
+    >
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -60,55 +68,98 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.headerContainer}>
-              <Header title="QR Attendance" />
+            <Header
+              title="QR Attendance"
+              subtitle="School event attendance"
+            />
+
+            <View style={styles.authHeader}>
+              <Text style={styles.title}>
+                Welcome back
+              </Text>
+
+              <Text style={styles.subtitle}>
+                Sign in to continue to your account.
+              </Text>
             </View>
-
-            <Text style={styles.title}>
-              Welcome Back
-            </Text>
-
-            <Text style={styles.subtitle}>
-              Sign in to record your attendance
-            </Text>
 
             <View style={styles.form}>
               <Text style={styles.label}>
                 Email
               </Text>
 
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="your.email@school.edu"
-                placeholderTextColor={COLORS.textSecondary}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                editable={!loading}
-              />
+              <View style={styles.inputShell}>
+                <Ionicons
+                  name="mail-outline"
+                  size={19}
+                  color={COLORS.textSecondary}
+                />
+
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="your.email@school.edu"
+                  placeholderTextColor={COLORS.textSecondary}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  editable={!loading}
+                />
+              </View>
 
               <Text style={styles.label}>
                 Password
               </Text>
 
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter your password"
-                placeholderTextColor={COLORS.textSecondary}
-                secureTextEntry
-                editable={!loading}
-              />
+              <View style={styles.inputShell}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={19}
+                  color={COLORS.textSecondary}
+                />
 
-              {error && (
-                <Text style={styles.error}>
-                  {error}
-                </Text>
-              )}
+                <TextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Enter your password"
+                  placeholderTextColor={COLORS.textSecondary}
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                />
 
-              <View style={styles.signInContainer}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={
+                      showPassword
+                        ? 'eye-off-outline'
+                        : 'eye-outline'
+                    }
+                    size={20}
+                    color={COLORS.textSecondary}
+                  />
+                </Pressable>
+              </View>
+
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={18}
+                    color={COLORS.danger}
+                  />
+
+                  <Text style={styles.errorText}>
+                    {error}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.actionArea}>
                 {loading ? (
                   <ActivityIndicator
                     size="large"
@@ -126,9 +177,12 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            <Link href="/register" style={styles.link}>
-              Don't have an account? Sign Up
-            </Link>
+            <Text style={styles.footerText}>
+              Don't have an account?{' '}
+              <Link href="/register" style={styles.link}>
+                Sign Up
+              </Link>
+            </Text>
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
@@ -147,62 +201,81 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingTop: 10,
+    paddingBottom: 36,
   },
-  headerContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    lineHeight: 21,
-    marginBottom: 32,
-  },
-  form: {
+  authHeader: {
+    marginTop: 22,
     marginBottom: 24,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
+  title: {
+    fontSize: 27,
+    fontWeight: '700',
     color: COLORS.textPrimary,
-    marginBottom: 6,
-    marginTop: 10,
   },
-  input: {
+  subtitle: {
+    marginTop: 5,
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.textSecondary,
+  },
+  form: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 7,
+    marginTop: 13,
+  },
+  inputShell: {
+    minHeight: 52,
     backgroundColor: COLORS.card,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
     color: COLORS.textPrimary,
+    paddingVertical: 12,
   },
-  signInContainer: {
-    marginTop: 16,
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    backgroundColor: COLORS.dangerSoft,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  error: {
-    fontSize: 14,
+  errorText: {
+    flex: 1,
     color: COLORS.danger,
-    textAlign: 'left',
-    marginTop: 12,
-    marginBottom: 4,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  actionArea: {
+    marginTop: 20,
   },
   loader: {
-    marginVertical: 16,
+    marginVertical: 13,
+  },
+  footerText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
   link: {
-    fontSize: 14,
     color: COLORS.primary,
-    textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

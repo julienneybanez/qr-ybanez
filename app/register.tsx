@@ -1,18 +1,19 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
   TouchableWithoutFeedback,
-  Keyboard,
-  Pressable,
+  View,
 } from 'react-native';
-import { Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
@@ -29,6 +30,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,9 +54,7 @@ export default function RegisterScreen() {
     }
 
     if (password.length < 6) {
-      setError(
-        'Password must be at least 6 characters.'
-      );
+      setError('Password must be at least 6 characters.');
       return;
     }
 
@@ -75,7 +75,7 @@ export default function RegisterScreen() {
       } else if (!data.session) {
         setSuccess(true);
       }
-    } catch (err) {
+    } catch {
       setError(
         'An unexpected error occurred. Please try again.'
       );
@@ -85,7 +85,12 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top },
+      ]}
+    >
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -97,178 +102,275 @@ export default function RegisterScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.headerContainer}>
-              <Header title="QR Attendance" />
+            <Header
+              title="QR Attendance"
+              subtitle="School event attendance"
+            />
+
+            <View style={styles.authHeader}>
+              <Text style={styles.title}>
+                Create account
+              </Text>
+
+              <Text style={styles.subtitle}>
+                Set up your account to get started.
+              </Text>
             </View>
 
-            <Text style={styles.title}>
-              Create Account
-            </Text>
-
-            <Text style={styles.subtitle}>
-              Register to start recording attendance
-            </Text>
-
             {success ? (
-              <View style={styles.successContainer}>
+              <View style={styles.successCard}>
+                <View style={styles.successIcon}>
+                  <Ionicons
+                    name="mail-unread-outline"
+                    size={30}
+                    color={COLORS.success}
+                  />
+                </View>
+
                 <Text style={styles.successTitle}>
-                  Check your email!
+                  Check your email
                 </Text>
 
                 <Text style={styles.successText}>
-                  We sent a confirmation link to {email}.
-                  Click the link to verify your account,
-                  then come back and sign in.
+                  We sent a confirmation link to {email}. Verify your account, then come back and sign in.
                 </Text>
 
-                <Link href="/login" style={styles.link}>
+                <Link href="/login" style={styles.successLink}>
                   Back to Sign In
                 </Link>
               </View>
             ) : (
-              <View style={styles.form}>
+              <>
                 <Text style={styles.label}>
-                  Full Name
+                  Full name
                 </Text>
 
-                <TextInput
-                  style={styles.input}
-                  value={fullName}
-                  onChangeText={setFullName}
-                  placeholder="Enter your full name"
-                  placeholderTextColor={
-                    COLORS.textSecondary
-                  }
-                  editable={!loading}
-                />
+                <View style={styles.inputShell}>
+                  <Ionicons
+                    name="person-outline"
+                    size={19}
+                    color={COLORS.textSecondary}
+                  />
+
+                  <TextInput
+                    style={styles.input}
+                    value={fullName}
+                    onChangeText={setFullName}
+                    placeholder="Enter your full name"
+                    placeholderTextColor={COLORS.textSecondary}
+                    editable={!loading}
+                  />
+                </View>
 
                 <Text style={styles.label}>
                   I am a...
                 </Text>
 
                 <View style={styles.roleRow}>
-                  <Pressable
-                    style={[
-                      styles.roleChip,
-                      role === 'student' &&
-                        styles.roleChipActive,
-                    ]}
+                  <RoleCard
+                    label="Student"
+                    icon="school-outline"
+                    selected={role === 'student'}
                     onPress={() => setRole('student')}
                     disabled={loading}
-                  >
-                    <Text
-                      style={[
-                        styles.roleChipText,
-                        role === 'student' &&
-                          styles.roleChipTextActive,
-                      ]}
-                    >
-                      Student
-                    </Text>
-                  </Pressable>
+                  />
 
-                  <Pressable
-                    style={[
-                      styles.roleChip,
-                      role === 'teacher' &&
-                        styles.roleChipActive,
-                    ]}
+                  <RoleCard
+                    label="Teacher"
+                    icon="people-outline"
+                    selected={role === 'teacher'}
                     onPress={() => setRole('teacher')}
                     disabled={loading}
-                  >
-                    <Text
-                      style={[
-                        styles.roleChipText,
-                        role === 'teacher' &&
-                          styles.roleChipTextActive,
-                      ]}
-                    >
-                      Teacher
-                    </Text>
-                  </Pressable>
+                  />
                 </View>
 
                 <Text style={styles.label}>
                   Email
                 </Text>
 
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="your.email@school.edu"
-                  placeholderTextColor={
-                    COLORS.textSecondary
-                  }
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  editable={!loading}
-                />
+                <View style={styles.inputShell}>
+                  <Ionicons
+                    name="mail-outline"
+                    size={19}
+                    color={COLORS.textSecondary}
+                  />
+
+                  <TextInput
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your.email@school.edu"
+                    placeholderTextColor={COLORS.textSecondary}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    editable={!loading}
+                  />
+                </View>
 
                 <Text style={styles.label}>
                   Password
                 </Text>
 
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="At least 6 characters"
-                  placeholderTextColor={
-                    COLORS.textSecondary
-                  }
-                  secureTextEntry
-                  editable={!loading}
-                />
+                <View style={styles.inputShell}>
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={19}
+                    color={COLORS.textSecondary}
+                  />
+
+                  <TextInput
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="At least 6 characters"
+                    placeholderTextColor={COLORS.textSecondary}
+                    secureTextEntry={!showPassword}
+                    editable={!loading}
+                  />
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setShowPassword((prev) => !prev)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={
+                        showPassword
+                          ? 'eye-off-outline'
+                          : 'eye-outline'
+                      }
+                      size={20}
+                      color={COLORS.textSecondary}
+                    />
+                  </Pressable>
+                </View>
 
                 <Text style={styles.label}>
-                  Confirm Password
+                  Confirm password
                 </Text>
 
-                <TextInput
-                  style={styles.input}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="Re-enter your password"
-                  placeholderTextColor={
-                    COLORS.textSecondary
-                  }
-                  secureTextEntry
-                  editable={!loading}
-                />
-
-                {error && (
-                  <Text style={styles.error}>
-                    {error}
-                  </Text>
-                )}
-
-                {loading ? (
-                  <ActivityIndicator
-                    size="large"
-                    color={COLORS.primary}
-                    style={styles.loader}
+                <View style={styles.inputShell}>
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={19}
+                    color={COLORS.textSecondary}
                   />
-                ) : (
-                  <AppButton
-                    theme="primary"
-                    title="Sign Up"
-                    icon="person-add-outline"
-                    onPress={handleRegister}
-                  />
-                )}
-              </View>
-            )}
 
-            {!success && (
-              <Link href="/login" style={styles.link}>
-                Already have an account? Sign In
-              </Link>
+                  <TextInput
+                    style={styles.input}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Re-enter your password"
+                    placeholderTextColor={COLORS.textSecondary}
+                    secureTextEntry={!showPassword}
+                    editable={!loading}
+                  />
+                </View>
+
+                {error ? (
+                  <View style={styles.errorBox}>
+                    <Ionicons
+                      name="alert-circle-outline"
+                      size={18}
+                      color={COLORS.danger}
+                    />
+
+                    <Text style={styles.errorText}>
+                      {error}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.actionArea}>
+                  {loading ? (
+                    <ActivityIndicator
+                      size="large"
+                      color={COLORS.primary}
+                      style={styles.loader}
+                    />
+                  ) : (
+                    <AppButton
+                      theme="primary"
+                      title="Create Account"
+                      icon="person-add-outline"
+                      onPress={handleRegister}
+                    />
+                  )}
+                </View>
+
+                <Text style={styles.footerText}>
+                  Already have an account?{' '}
+                  <Link href="/login" style={styles.link}>
+                    Sign In
+                  </Link>
+                </Text>
+              </>
             )}
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </View>
+  );
+}
+
+function RoleCard({
+  label,
+  icon,
+  selected,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  selected: boolean;
+  onPress: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.roleCard,
+        selected && styles.roleCardSelected,
+        pressed && styles.pressed,
+      ]}
+    >
+      <View
+        style={[
+          styles.roleIcon,
+          selected && styles.roleIconSelected,
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={22}
+          color={
+            selected
+              ? COLORS.primary
+              : COLORS.textSecondary
+          }
+        />
+      </View>
+
+      <Text
+        style={[
+          styles.roleText,
+          selected && styles.roleTextSelected,
+        ]}
+      >
+        {label}
+      </Text>
+
+      {selected ? (
+        <Ionicons
+          name="checkmark-circle"
+          size={18}
+          color={COLORS.primary}
+          style={styles.roleCheck}
+        />
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -283,108 +385,160 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingTop: 10,
+    paddingBottom: 36,
   },
-  headerContainer: {
-    alignItems: 'center',
-    marginTop: 20,
+  authHeader: {
+    marginTop: 22,
     marginBottom: 16,
   },
   title: {
-    fontSize: 28,
+    fontSize: 27,
     fontWeight: '700',
     color: COLORS.textPrimary,
-    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 15,
+    marginTop: 5,
+    fontSize: 14,
+    lineHeight: 20,
     color: COLORS.textSecondary,
-    lineHeight: 21,
-    marginBottom: 32,
-  },
-  form: {
-    marginBottom: 24,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: COLORS.textPrimary,
-    marginBottom: 6,
-    marginTop: 10,
+    marginBottom: 7,
+    marginTop: 13,
   },
-  input: {
+  inputShell: {
+    minHeight: 52,
     backgroundColor: COLORS.card,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
     color: COLORS.textPrimary,
+    paddingVertical: 12,
   },
   roleRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 6,
   },
-  roleChip: {
+  roleCard: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
+    minHeight: 104,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.card,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  roleChipActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primary + '14',
-  },
-  roleChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  roleChipTextActive: {
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
-  error: {
-    fontSize: 14,
-    color: COLORS.danger,
-    textAlign: 'left',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  loader: {
-    marginVertical: 16,
-  },
-  link: {
-    fontSize: 14,
-    color: COLORS.primary,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  successContainer: {
     alignItems: 'center',
-    marginBottom: 24,
-    padding: 20,
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
+    justifyContent: 'center',
+    position: 'relative',
   },
-  successTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
+  roleCardSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primarySoft,
+  },
+  roleIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 8,
   },
-  successText: {
-    fontSize: 14,
+  roleIconSelected: {
+    backgroundColor: COLORS.card,
+  },
+  roleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  roleTextSelected: {
+    color: COLORS.primary,
+  },
+  roleCheck: {
+    position: 'absolute',
+    right: 9,
+    top: 9,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    backgroundColor: COLORS.dangerSoft,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  errorText: {
+    flex: 1,
+    color: COLORS.danger,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  actionArea: {
+    marginTop: 20,
+  },
+  loader: {
+    marginVertical: 13,
+  },
+  footerText: {
+    fontSize: 13,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 16,
+  },
+  link: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  successCard: {
+    marginTop: 18,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 22,
+    alignItems: 'center',
+  },
+  successIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: COLORS.successSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  successTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  successText: {
+    marginTop: 8,
+    marginBottom: 18,
+    fontSize: 13,
+    lineHeight: 19,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  successLink: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  pressed: {
+    opacity: 0.76,
   },
 });

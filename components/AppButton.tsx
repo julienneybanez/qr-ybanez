@@ -3,10 +3,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { COLORS } from '@/constants/colors';
 
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+
 type Props = {
   title: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon?: keyof typeof Ionicons.glyphMap;
   theme?: 'primary';
+  variant?: ButtonVariant;
   onPress: () => void;
   disabled?: boolean;
 };
@@ -15,83 +18,114 @@ export default function AppButton({
   title,
   icon,
   theme,
+  variant,
   onPress,
   disabled = false,
 }: Props) {
-  if (theme === 'primary') {
-    return (
-      <View
-        style={[
-          styles.buttonOuter,
-          { borderWidth: 1, borderColor: COLORS.primary, borderRadius: 10 },
-          disabled && styles.disabled,
-        ]}
-      >
-        <Pressable
-          style={[styles.buttonInner, { backgroundColor: COLORS.primary }]}
-          onPress={onPress}
-          disabled={disabled}
-        >
-          <Ionicons
-            name={icon}
-            size={22}
-            color={COLORS.textOnPrimary}
-            style={styles.icon}
-          />
-          <Text style={[styles.label, { color: COLORS.textOnPrimary, fontWeight: '700'}]}>
-            {title}
-          </Text>
-        </Pressable>
-      </View>
-    );
-  }
+  const resolvedVariant: ButtonVariant =
+    variant ?? (theme === 'primary' ? 'primary' : 'secondary');
+
+  const isPrimary = resolvedVariant === 'primary';
+  const isDanger = resolvedVariant === 'danger';
+  const isGhost = resolvedVariant === 'ghost';
+
+  const iconColor = isPrimary
+    ? COLORS.textOnPrimary
+    : isDanger
+      ? COLORS.danger
+      : COLORS.primary;
+
+  const labelColor = isPrimary
+    ? COLORS.textOnPrimary
+    : isDanger
+      ? COLORS.danger
+      : COLORS.textPrimary;
 
   return (
-    <View style={[styles.buttonOuter, disabled && styles.disabled]}>
+    <View style={[styles.wrapper, disabled && styles.disabled]}>
       <Pressable
-        style={[styles.buttonInner, styles.secondaryFill]}
+        accessibilityRole="button"
         onPress={onPress}
         disabled={disabled}
+        style={({ pressed }) => [
+          styles.button,
+          isPrimary && styles.primary,
+          resolvedVariant === 'secondary' && styles.secondary,
+          isGhost && styles.ghost,
+          isDanger && styles.danger,
+          pressed && !disabled && styles.pressed,
+        ]}
       >
-        <Ionicons
-          name={icon}
-          size={22}
-          color={COLORS.textSecondary}
-          style={styles.icon}
-        />
-        <Text style={styles.label}>{title}</Text>
+        {icon && (
+          <Ionicons
+            name={icon}
+            size={20}
+            color={iconColor}
+            style={styles.icon}
+          />
+        )}
+
+        <Text
+          style={[
+            styles.label,
+            { color: labelColor },
+            isPrimary && styles.primaryLabel,
+          ]}
+        >
+          {title}
+        </Text>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  buttonOuter: {
+  wrapper: {
     width: '100%',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  buttonInner: {
-    borderRadius: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+  button: {
+    minHeight: 52,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-  },
-  secondaryFill: {
-    backgroundColor: COLORS.card,
     borderWidth: 1,
+  },
+  primary: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  secondary: {
+    backgroundColor: COLORS.card,
     borderColor: COLORS.border,
   },
+  ghost: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+  },
+  danger: {
+    backgroundColor: COLORS.dangerSoft,
+    borderColor: COLORS.dangerSoft,
+  },
+  pressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.99 }],
+  },
   disabled: {
-    opacity: 0.55,
+    opacity: 0.5,
   },
   icon: {
-    paddingRight: 10,
+    marginRight: 9,
   },
   label: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    textAlign: 'center',
+  },
+  primaryLabel: {
+    fontWeight: '700',
   },
 });
