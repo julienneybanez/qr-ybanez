@@ -8,36 +8,26 @@ import {
   type Profile,
 } from './profiles';
 
-let cachedUserId: string | null =
-  null;
+type ProfileCacheSnapshot = {
+  cachedUserId: string | null;
+  cachedProfile: Profile | null;
+  initializedUserId: string | null;
+  loadingUserId: string | null;
+};
 
-let cachedProfile: Profile | null =
-  null;
-
-let initializedUserId:
-  | string
-  | null = null;
-
-let loadingUserId:
-  | string
-  | null = null;
+let snapshot: ProfileCacheSnapshot = {
+  cachedUserId: null,
+  cachedProfile: null,
+  initializedUserId: null,
+  loadingUserId: null,
+};
 
 let pendingRequest:
   | Promise<Profile | null>
   | null = null;
 
-let version = 0;
-
 const listeners =
   new Set<() => void>();
-
-function notify() {
-  version += 1;
-
-  listeners.forEach(
-    (listener) => listener()
-  );
-}
 
 function subscribe(
   listener: () => void
@@ -50,26 +40,45 @@ function subscribe(
 }
 
 function getSnapshot() {
-  return version;
+  return snapshot;
+}
+
+function updateSnapshot(
+  next:
+    | ProfileCacheSnapshot
+    | ((
+        current: ProfileCacheSnapshot
+      ) => ProfileCacheSnapshot)
+) {
+  snapshot =
+    typeof next === 'function'
+      ? next(snapshot)
+      : next;
+
+  listeners.forEach(
+    (listener) => listener()
+  );
 }
 
 export function getCachedProfile(
   userId: string
 ) {
   if (
-    cachedUserId !== userId
+    snapshot.cachedUserId !==
+    userId
   ) {
     return null;
   }
 
-  return cachedProfile;
+  return snapshot.cachedProfile;
 }
 
 export function hasCachedProfile(
   userId: string
 ) {
   return (
-    initializedUserId === userId
+    snapshot.initializedUserId ===
+    userId
   );
 }
 
@@ -79,7 +88,8 @@ export async function loadCachedProfile(
 ): Promise<Profile | null> {
   if (
     !force &&
-    initializedUserId === userId
+    snapshot.initializedUserId ===
+      userId
   ) {
     return getCachedProfile(
       userId
@@ -87,60 +97,76 @@ export async function loadCachedProfile(
   }
 
   if (
-    loadingUserId === userId &&
+    snapshot.loadingUserId ===
+      userId &&
     pendingRequest
   ) {
     return pendingRequest;
   }
 
-  loadingUserId = userId;
+  updateSnapshot(
+    (current) => ({
+      ...current,
+      loadingUserId:
+        userId,
+    })
+  );
 
   const request =
     getProfile(userId)
       .then((profile) => {
         if (
-          loadingUserId === userId
+          snapshot.loadingUserId !==
+          userId
         ) {
-          cachedUserId =
-            userId;
-
-          cachedProfile =
-            profile;
-
-          initializedUserId =
-            userId;
-
-          loadingUserId =
-            null;
-
-          pendingRequest =
-            null;
-
-          notify();
+          return profile;
         }
+
+        pendingRequest =
+          null;
+
+        updateSnapshot({
+          cachedUserId:
+            userId,
+
+          cachedProfile:
+            profile,
+
+          initializedUserId:
+            userId,
+
+          loadingUserId:
+            null,
+        });
 
         return profile;
       })
       .catch(() => {
         if (
-          loadingUserId === userId
+          snapshot.loadingUserId ===
+          userId
         ) {
-          initializedUserId =
-            userId;
-
-          loadingUserId =
-            null;
-
           pendingRequest =
             null;
 
-          notify();
+          updateSnapshot(
+            (current) => ({
+              ...current,
+
+              initializedUserId:
+                userId,
+
+              loadingUserId:
+                null,
+            })
+          );
         }
 
         return null;
       });
 
-  pendingRequest = request;
+  pendingRequest =
+    request;
 
   return request;
 }
@@ -159,41 +185,56 @@ export function patchCachedProfile(
   updates: Partial<Profile>
 ) {
   if (
-    cachedUserId !== userId ||
-    !cachedProfile
+    snapshot.cachedUserId !==
+      userId ||
+    !snapshot.cachedProfile
   ) {
     return;
   }
 
-  cachedProfile = {
-    ...cachedProfile,
-    ...updates,
-  };
+  updateSnapshot(
+    (current) => ({
+      ...current,
 
-  initializedUserId =
-    userId;
+      cachedProfile: {
+        ...current.cachedProfile!,
+        ...updates,
+      },
 
-  notify();
+      initializedUserId:
+        userId,
+    })
+  );
 }
 
 export function clearProfileCache() {
-  cachedUserId = null;
-  cachedProfile = null;
-  initializedUserId = null;
-  loadingUserId = null;
-  pendingRequest = null;
+  pendingRequest =
+    null;
 
-  notify();
+  updateSnapshot({
+    cachedUserId:
+      null,
+
+    cachedProfile:
+      null,
+
+    initializedUserId:
+      null,
+
+    loadingUserId:
+      null,
+  });
 }
 
 export function useCachedProfile(
   userId?: string | null
 ) {
-  useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getSnapshot
-  );
+  const state =
+    useSyncExternalStore(
+      subscribe,
+      getSnapshot,
+      getSnapshot
+    );
 
   useEffect(() => {
     if (!userId) {
@@ -206,17 +247,18 @@ export function useCachedProfile(
   }, [userId]);
 
   const profile =
-    userId
-      ? getCachedProfile(
-          userId
-        )
+    userId &&
+    state.cachedUserId ===
+      userId
+      ? state.cachedProfile
       : null;
 
-  const loading = Boolean(
-    userId &&
-      initializedUserId !==
+  const loading =
+    Boolean(
+      userId &&
+      state.initializedUserId !==
         userId
-  );
+    );
 
   return {
     profile,

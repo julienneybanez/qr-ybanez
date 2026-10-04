@@ -10,7 +10,10 @@ import type {
 import {
   clearProfileCache,
 } from './profile-cache';
-import { supabase } from './supabase';
+
+import {
+  supabase,
+} from './supabase';
 
 type AuthState = {
   session: Session | null;
@@ -20,30 +23,33 @@ type AuthState = {
 
 export type SignUpProfile = {
   full_name: string;
+
   role:
     | 'student'
     | 'teacher';
+
   student_id:
     | string
     | null;
 };
 
-let globalSession:
-  | Session
-  | null = null;
+let authState: AuthState = {
+  session: null,
+  user: null,
+  loading: true,
+};
 
-let globalUser:
-  | User
+let initializationPromise:
+  | Promise<void>
   | null = null;
-
-let globalLoading = false;
 
 const listeners =
   new Set<() => void>();
 
 function notify() {
   listeners.forEach(
-    (listener) => listener()
+    (listener) =>
+      listener()
   );
 }
 
@@ -58,17 +64,23 @@ function subscribe(
 }
 
 function getSnapshot() {
-  return globalSession;
+  return authState;
 }
 
 export function setAuth(
   session: Session | null
 ) {
   const previousUserId =
-    globalUser?.id ?? null;
+    authState.user?.id ??
+    null;
+
+  const nextUser =
+    session?.user ??
+    null;
 
   const nextUserId =
-    session?.user?.id ?? null;
+    nextUser?.id ??
+    null;
 
   if (
     previousUserId &&
@@ -78,31 +90,64 @@ export function setAuth(
     clearProfileCache();
   }
 
-  globalSession = session;
-
-  globalUser =
-    session?.user ?? null;
-
-  globalLoading = false;
+  authState = {
+    session,
+    user: nextUser,
+    loading: false,
+  };
 
   notify();
 }
 
-export function useAuth(): AuthState {
-  const session =
-    useSyncExternalStore(
-      subscribe,
-      getSnapshot,
-      getSnapshot
-    );
+export function initializeAuth() {
+  if (initializationPromise) {
+    return initializationPromise;
+  }
 
-  return {
-    session,
-    user:
-      session?.user ??
-      globalUser,
-    loading: globalLoading,
-  };
+  initializationPromise =
+    (async () => {
+      try {
+        const {
+          data,
+          error,
+        } =
+          await supabase.auth
+            .getSession();
+
+        if (error) {
+          console.warn(
+            'Unable to restore session:',
+            error.message
+          );
+
+          setAuth(null);
+
+          return;
+        }
+
+        setAuth(
+          data.session ??
+          null
+        );
+      } catch (error) {
+        console.warn(
+          'Unable to initialize authentication:',
+          error
+        );
+
+        setAuth(null);
+      }
+    })();
+
+  return initializationPromise;
+}
+
+export function useAuth(): AuthState {
+  return useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getSnapshot
+  );
 }
 
 export async function signUp(
@@ -110,26 +155,30 @@ export async function signUp(
   password: string,
   profile?: SignUpProfile
 ) {
-  const { data, error } =
-    await supabase.auth.signUp({
-      email,
-      password,
+  const {
+    data,
+    error,
+  } =
+    await supabase.auth
+      .signUp({
+        email,
+        password,
 
-      options: profile
-        ? {
-            data: {
-              full_name:
-                profile.full_name,
+        options: profile
+          ? {
+              data: {
+                full_name:
+                  profile.full_name,
 
-              role:
-                profile.role,
+                role:
+                  profile.role,
 
-              student_id:
-                profile.student_id,
-            },
-          }
-        : undefined,
-    });
+                student_id:
+                  profile.student_id,
+              },
+            }
+          : undefined,
+      });
 
   if (
     !error &&
@@ -137,7 +186,9 @@ export async function signUp(
   ) {
     clearProfileCache();
 
-    setAuth(data.session);
+    setAuth(
+      data.session
+    );
   }
 
   return {
@@ -150,7 +201,10 @@ export async function signIn(
   email: string,
   password: string
 ) {
-  const { data, error } =
+  const {
+    data,
+    error,
+  } =
     await supabase.auth
       .signInWithPassword({
         email,
@@ -163,7 +217,9 @@ export async function signIn(
   ) {
     clearProfileCache();
 
-    setAuth(data.session);
+    setAuth(
+      data.session
+    );
   }
 
   return {
@@ -173,15 +229,19 @@ export async function signIn(
 }
 
 export async function signOut() {
-  clearProfileCache();
+  const {
+    error,
+  } =
+    await supabase.auth
+      .signOut();
 
-  setAuth(null);
+  if (!error) {
+    clearProfileCache();
 
-  supabase.auth
-    .signOut()
-    .catch(() => {});
+    setAuth(null);
+  }
 
   return {
-    error: null,
+    error,
   };
 }
