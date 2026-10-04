@@ -43,6 +43,9 @@ let globalUser:
 
 let globalLoading = true;
 
+let authListenerStarted =
+  false;
+
 let version = 0;
 
 const listeners =
@@ -52,17 +55,22 @@ function notify() {
   version += 1;
 
   listeners.forEach(
-    (listener) => listener()
+    (listener) =>
+      listener()
   );
 }
 
 function subscribe(
   listener: () => void
 ) {
-  listeners.add(listener);
+  listeners.add(
+    listener
+  );
 
   return () => {
-    listeners.delete(listener);
+    listeners.delete(
+      listener
+    );
   };
 }
 
@@ -70,14 +78,60 @@ function getSnapshot() {
   return version;
 }
 
+function withTimeout<T>(
+  promise:
+    PromiseLike<T>,
+  timeoutMs: number
+): Promise<T> {
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+      const timeoutId =
+        setTimeout(
+          () => {
+            reject(
+              new Error(
+                'Session restoration timed out.'
+              )
+            );
+          },
+          timeoutMs
+        );
+
+      Promise.resolve(
+        promise
+      ).then(
+        (value) => {
+          clearTimeout(
+            timeoutId
+          );
+
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(
+            timeoutId
+          );
+
+          reject(error);
+        }
+      );
+    }
+  );
+}
+
 export function setAuth(
   session: Session | null
 ) {
   const previousUserId =
-    globalUser?.id ?? null;
+    globalUser?.id ??
+    null;
 
   const nextUserId =
-    session?.user?.id ?? null;
+    session?.user?.id ??
+    null;
 
   if (
     previousUserId !==
@@ -86,24 +140,58 @@ export function setAuth(
     clearProfileCache();
   }
 
-  globalSession = session;
+  globalSession =
+    session;
 
   globalUser =
-    session?.user ?? null;
+    session?.user ??
+    null;
 
-  globalLoading = false;
+  globalLoading =
+    false;
 
   notify();
 }
 
-async function restoreSession() {
+function startAuthListener() {
+  if (
+    authListenerStarted
+  ) {
+    return;
+  }
+
+  authListenerStarted =
+    true;
+
+  supabase.auth
+    .onAuthStateChange(
+      (
+        _event,
+        session
+      ) => {
+        setAuth(
+          session
+        );
+      }
+    );
+}
+
+async function initializeAuth() {
   try {
+    /*
+     * Restore first, then subscribe. Doing both simultaneously
+     * can leave auth initialization waiting on storage in some
+     * React Native / Expo environments.
+     */
     const {
       data,
       error,
     } =
-      await supabase.auth
-        .getSession();
+      await withTimeout(
+        supabase.auth
+          .getSession(),
+        8000
+      );
 
     if (error) {
       console.warn(
@@ -117,35 +205,27 @@ async function restoreSession() {
     }
 
     setAuth(
-      data.session ?? null
+      data.session ??
+      null
     );
   } catch (error) {
+    /*
+     * Never leave the whole app behind an endless startup
+     * spinner. If restoration fails or times out, continue as
+     * signed out and allow a normal login.
+     */
     console.warn(
       'Unable to restore the saved session:',
       error
     );
 
     setAuth(null);
+  } finally {
+    startAuthListener();
   }
 }
 
-/*
- * Keep the in-memory auth state synchronized with Supabase.
- *
- * This covers sign-in, sign-out, token refreshes, and restored
- * sessions without requiring every screen to manage auth state.
- */
-supabase.auth.onAuthStateChange(
-  (_event, session) => {
-    setAuth(session);
-  }
-);
-
-/*
- * Restore the persisted session once when this module is loaded.
- * RootLayout keeps showing its loading state until this completes.
- */
-void restoreSession();
+void initializeAuth();
 
 export function useAuth(): AuthState {
   useSyncExternalStore(
@@ -155,9 +235,14 @@ export function useAuth(): AuthState {
   );
 
   return {
-    session: globalSession,
-    user: globalUser,
-    loading: globalLoading,
+    session:
+      globalSession,
+
+    user:
+      globalUser,
+
+    loading:
+      globalLoading,
   };
 }
 
@@ -236,10 +321,6 @@ export async function signIn(
 }
 
 export async function signOut() {
-  /*
-   * Clear the local UI immediately so private screens/data are
-   * no longer displayed while Supabase completes sign-out.
-   */
   clearProfileCache();
 
   setAuth(null);

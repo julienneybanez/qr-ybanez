@@ -19,15 +19,56 @@ export type ProfileFetchResult = {
   error: string | null;
 };
 
+function withTimeout<T>(
+  promise:
+    PromiseLike<T>,
+  timeoutMs: number
+): Promise<T> {
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+      const timeoutId =
+        setTimeout(
+          () => {
+            reject(
+              new Error(
+                'Profile request timed out.'
+              )
+            );
+          },
+          timeoutMs
+        );
+
+      Promise.resolve(
+        promise
+      ).then(
+        (value) => {
+          clearTimeout(
+            timeoutId
+          );
+
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(
+            timeoutId
+          );
+
+          reject(error);
+        }
+      );
+    }
+  );
+}
+
 export async function getProfileResult(
   userId: string
 ): Promise<ProfileFetchResult> {
   try {
-    const {
-      data,
-      error,
-    } =
-      await supabase
+    const request =
+      supabase
         .from('profiles')
         .select(
           'id, email, full_name, role, student_id'
@@ -38,9 +79,19 @@ export async function getProfileResult(
         )
         .maybeSingle();
 
+    const {
+      data,
+      error,
+    } =
+      await withTimeout(
+        request,
+        10000
+      );
+
     if (error) {
       return {
         profile: null,
+
         error:
           error.message ||
           'Unable to load profile.',

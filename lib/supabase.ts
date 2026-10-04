@@ -1,5 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
-import Storage from 'expo-sqlite/kv-store';
+import 'expo-sqlite/localStorage/install';
+
+import {
+  createClient,
+} from '@supabase/supabase-js';
 
 const supabaseUrl =
   process.env.EXPO_PUBLIC_SUPABASE_URL!;
@@ -13,10 +16,21 @@ export const supabase =
     supabaseAnonKey,
     {
       auth: {
-        storage: Storage,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
+        /*
+         * Expo's SQLite-backed localStorage is the officially
+         * supported Expo persistence approach for Supabase.
+         */
+        storage:
+          localStorage,
+
+        autoRefreshToken:
+          true,
+
+        persistSession:
+          true,
+
+        detectSessionInUrl:
+          false,
       },
     }
   );
