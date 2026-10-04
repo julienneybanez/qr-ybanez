@@ -1,6 +1,15 @@
-import { useSyncExternalStore } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
+import {
+  useSyncExternalStore,
+} from 'react';
 
+import type {
+  Session,
+  User,
+} from '@supabase/supabase-js';
+
+import {
+  clearProfileCache,
+} from './profile-cache';
 import { supabase } from './supabase';
 
 type AuthState = {
@@ -11,20 +20,36 @@ type AuthState = {
 
 export type SignUpProfile = {
   full_name: string;
-  role: 'student' | 'teacher';
+  role:
+    | 'student'
+    | 'teacher';
+  student_id:
+    | string
+    | null;
 };
 
-let globalSession: Session | null = null;
-let globalUser: User | null = null;
+let globalSession:
+  | Session
+  | null = null;
+
+let globalUser:
+  | User
+  | null = null;
+
 let globalLoading = false;
 
-const listeners: Set<() => void> = new Set();
+const listeners =
+  new Set<() => void>();
 
 function notify() {
-  listeners.forEach((listener) => listener());
+  listeners.forEach(
+    (listener) => listener()
+  );
 }
 
-function subscribe(listener: () => void) {
+function subscribe(
+  listener: () => void
+) {
   listeners.add(listener);
 
   return () => {
@@ -36,24 +61,46 @@ function getSnapshot() {
   return globalSession;
 }
 
-export function setAuth(session: Session | null) {
+export function setAuth(
+  session: Session | null
+) {
+  const previousUserId =
+    globalUser?.id ?? null;
+
+  const nextUserId =
+    session?.user?.id ?? null;
+
+  if (
+    previousUserId &&
+    previousUserId !==
+      nextUserId
+  ) {
+    clearProfileCache();
+  }
+
   globalSession = session;
-  globalUser = session?.user ?? null;
+
+  globalUser =
+    session?.user ?? null;
+
   globalLoading = false;
 
   notify();
 }
 
 export function useAuth(): AuthState {
-  const session = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getSnapshot
-  );
+  const session =
+    useSyncExternalStore(
+      subscribe,
+      getSnapshot,
+      getSnapshot
+    );
 
   return {
     session,
-    user: session?.user ?? globalUser,
+    user:
+      session?.user ??
+      globalUser,
     loading: globalLoading,
   };
 }
@@ -63,24 +110,40 @@ export async function signUp(
   password: string,
   profile?: SignUpProfile
 ) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: profile
-      ? {
-          data: {
-            full_name: profile.full_name,
-            role: profile.role,
-          },
-        }
-      : undefined,
-  });
+  const { data, error } =
+    await supabase.auth.signUp({
+      email,
+      password,
 
-  if (!error && data.session) {
+      options: profile
+        ? {
+            data: {
+              full_name:
+                profile.full_name,
+
+              role:
+                profile.role,
+
+              student_id:
+                profile.student_id,
+            },
+          }
+        : undefined,
+    });
+
+  if (
+    !error &&
+    data.session
+  ) {
+    clearProfileCache();
+
     setAuth(data.session);
   }
 
-  return { data, error };
+  return {
+    data,
+    error,
+  };
 }
 
 export async function signIn(
@@ -88,22 +151,37 @@ export async function signIn(
   password: string
 ) {
   const { data, error } =
-    await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    await supabase.auth
+      .signInWithPassword({
+        email,
+        password,
+      });
 
-  if (!error && data.session) {
+  if (
+    !error &&
+    data.session
+  ) {
+    clearProfileCache();
+
     setAuth(data.session);
   }
 
-  return { data, error };
+  return {
+    data,
+    error,
+  };
 }
 
 export async function signOut() {
+  clearProfileCache();
+
   setAuth(null);
 
-  supabase.auth.signOut().catch(() => {});
+  supabase.auth
+    .signOut()
+    .catch(() => {});
 
-  return { error: null };
+  return {
+    error: null,
+  };
 }

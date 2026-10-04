@@ -70,7 +70,6 @@ export default function LoginScreen() {
           >
             <Header
               title="QR Attendance"
-              subtitle="School event attendance"
             />
 
             <View style={styles.authHeader}>

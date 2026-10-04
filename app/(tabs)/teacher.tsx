@@ -24,14 +24,13 @@ import { useAuth } from '@/lib/auth';
 import {
   closeEvent,
   createEvent,
+  getEventDisplayStatus,
   getEventsByTeacher,
+  peekTeacherEvents,
   updateEvent,
   type CloudEvent,
 } from '@/lib/events';
-import {
-  getProfile,
-  type Role,
-} from '@/lib/profiles';
+import { useCachedProfile } from '@/lib/profile-cache';
 import { buildQRPayload } from '@/lib/qr';
 
 function formatDateTime(date: Date) {
@@ -59,48 +58,6 @@ function parseEventDate(
     : parsed;
 }
 
-type EventDisplayStatus =
-  | 'Upcoming'
-  | 'Ongoing'
-  | 'Ended'
-  | 'Closed';
-
-function getEventDisplayStatus(
-  event: CloudEvent
-): EventDisplayStatus {
-  if (event.status === 'closed') {
-    return 'Closed';
-  }
-
-  const now = Date.now();
-
-  const startTime = event.start_time
-    ? new Date(event.start_time).getTime()
-    : null;
-
-  const endTime = event.end_time
-    ? new Date(event.end_time).getTime()
-    : null;
-
-  if (
-    startTime !== null &&
-    Number.isFinite(startTime) &&
-    now < startTime
-  ) {
-    return 'Upcoming';
-  }
-
-  if (
-    endTime !== null &&
-    Number.isFinite(endTime) &&
-    now > endTime
-  ) {
-    return 'Ended';
-  }
-
-  return 'Ongoing';
-}
-
 const QUICK_END_OPTIONS = [
   {
     label: '+30 min',
@@ -122,20 +79,27 @@ type MessageType = 'success' | 'error';
 export default function TeacherScreen() {
   const { user } = useAuth();
 
-  const [role, setRole] =
-    useState<Role | null>(null);
+  const {
+    profile,
+    loading: roleLoading,
+  } = useCachedProfile(user?.id);
 
-  const [roleLoading, setRoleLoading] =
-    useState(true);
+  const initialEvents = user
+    ? peekTeacherEvents(user.id)
+    : null;
 
   const [
     eventsLoading,
     setEventsLoading,
-  ] = useState(false);
+  ] = useState(
+    initialEvents === null
+  );
 
   const [events, setEvents] = useState<
     CloudEvent[]
-  >([]);
+  >(
+    () => initialEvents ?? []
+  );
 
   const [
     editingEvent,
@@ -183,68 +147,53 @@ export default function TeacherScreen() {
     useState(false);
 
   const loadTeacherEvents =
-    useCallback(async () => {
-      if (!user) {
-        return;
-      }
+    useCallback(
+      async (
+        showInitialLoader = false
+      ) => {
+        if (!user) {
+          return;
+        }
 
-      setEventsLoading(true);
+        const cached =
+          peekTeacherEvents(
+            user.id
+          );
 
-      const rows =
-        await getEventsByTeacher(
-          user.id
-        );
+        if (cached) {
+          setEvents(cached);
+          setEventsLoading(false);
+        } else if (
+          showInitialLoader
+        ) {
+          setEventsLoading(true);
+        }
 
-      setEvents(rows);
-      setEventsLoading(false);
-    }, [user]);
+        const rows =
+          await getEventsByTeacher(
+            user.id
+          );
+
+        setEvents(rows);
+        setEventsLoading(false);
+      },
+      [user]
+    );
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-
-      async function load() {
-        if (!user) {
-          setRoleLoading(false);
-          return;
-        }
-
-        const profile =
-          await getProfile(user.id);
-
-        if (!active) {
-          return;
-        }
-
-        const currentRole =
-          profile?.role ?? 'student';
-
-        setRole(currentRole);
-        setRoleLoading(false);
-
-        if (
-          currentRole === 'teacher'
-        ) {
-          setEventsLoading(true);
-
-          const rows =
-            await getEventsByTeacher(
-              user.id
-            );
-
-          if (active) {
-            setEvents(rows);
-            setEventsLoading(false);
-          }
-        }
+      if (
+        profile?.role !==
+        'teacher'
+      ) {
+        return;
       }
 
-      load();
-
-      return () => {
-        active = false;
-      };
-    }, [user])
+      void loadTeacherEvents(true);
+    }, [
+      profile?.role,
+      loadTeacherEvents,
+    ])
   );
 
   const isAndroid =
@@ -600,7 +549,8 @@ export default function TeacherScreen() {
             }
 
             if (
-              qrEvent?.id === event.id
+              qrEvent?.id ===
+              event.id
             ) {
               setQrEvent(null);
             }
@@ -638,7 +588,10 @@ export default function TeacherScreen() {
     );
   }
 
-  if (role !== 'teacher') {
+  if (
+    profile?.role !==
+    'teacher'
+  ) {
     return (
       <SafeAreaView
         style={styles.stateScreen}
@@ -1046,7 +999,8 @@ export default function TeacherScreen() {
           </Text>
         </View>
 
-        {eventsLoading ? (
+        {eventsLoading &&
+        events.length === 0 ? (
           <ActivityIndicator
             size="small"
             color={COLORS.primary}
