@@ -43,9 +43,6 @@ let globalUser:
 
 let globalLoading = true;
 
-let authListenerStarted =
-  false;
-
 let version = 0;
 
 const listeners =
@@ -76,50 +73,6 @@ function subscribe(
 
 function getSnapshot() {
   return version;
-}
-
-function withTimeout<T>(
-  promise:
-    PromiseLike<T>,
-  timeoutMs: number
-): Promise<T> {
-  return new Promise(
-    (
-      resolve,
-      reject
-    ) => {
-      const timeoutId =
-        setTimeout(
-          () => {
-            reject(
-              new Error(
-                'Session restoration timed out.'
-              )
-            );
-          },
-          timeoutMs
-        );
-
-      Promise.resolve(
-        promise
-      ).then(
-        (value) => {
-          clearTimeout(
-            timeoutId
-          );
-
-          resolve(value);
-        },
-        (error) => {
-          clearTimeout(
-            timeoutId
-          );
-
-          reject(error);
-        }
-      );
-    }
-  );
 }
 
 export function setAuth(
@@ -153,16 +106,19 @@ export function setAuth(
   notify();
 }
 
-function startAuthListener() {
-  if (
-    authListenerStarted
-  ) {
-    return;
-  }
-
-  authListenerStarted =
-    true;
-
+/*
+ * Supabase emits INITIAL_SESSION after it has checked the
+ * configured persistent storage. We use that event as the
+ * single source of truth for cold-start restoration.
+ *
+ * Do not call getSession() in parallel with this during startup.
+ * In React Native/Expo that can leave a pending auth lock behind,
+ * causing a later signInWithPassword() call to appear frozen.
+ */
+const {
+  data:
+    authSubscription,
+} =
   supabase.auth
     .onAuthStateChange(
       (
@@ -174,58 +130,30 @@ function startAuthListener() {
         );
       }
     );
-}
 
-async function initializeAuth() {
-  try {
-    /*
-     * Restore first, then subscribe. Doing both simultaneously
-     * can leave auth initialization waiting on storage in some
-     * React Native / Expo environments.
-     */
-    const {
-      data,
-      error,
-    } =
-      await withTimeout(
-        supabase.auth
-          .getSession(),
-        8000
-      );
+/*
+ * Defensive fallback only for the UI. It does not start another
+ * Supabase auth request, so it cannot compete for the auth lock.
+ * If INITIAL_SESSION has not arrived after a few seconds, allow
+ * the user to reach Login instead of showing an endless spinner.
+ */
+const startupFallback =
+  setTimeout(
+    () => {
+      if (
+        globalLoading
+      ) {
+        globalLoading =
+          false;
 
-    if (error) {
-      console.warn(
-        'Unable to restore the saved session:',
-        error.message
-      );
+        notify();
+      }
+    },
+    4000
+  );
 
-      setAuth(null);
-
-      return;
-    }
-
-    setAuth(
-      data.session ??
-      null
-    );
-  } catch (error) {
-    /*
-     * Never leave the whole app behind an endless startup
-     * spinner. If restoration fails or times out, continue as
-     * signed out and allow a normal login.
-     */
-    console.warn(
-      'Unable to restore the saved session:',
-      error
-    );
-
-    setAuth(null);
-  } finally {
-    startAuthListener();
-  }
-}
-
-void initializeAuth();
+void authSubscription;
+void startupFallback;
 
 export function useAuth(): AuthState {
   useSyncExternalStore(
@@ -323,13 +251,15 @@ export async function signIn(
 export async function signOut() {
   clearProfileCache();
 
-  setAuth(null);
-
   const {
     error,
   } =
     await supabase.auth
       .signOut();
+
+  if (!error) {
+    setAuth(null);
+  }
 
   return {
     error,
