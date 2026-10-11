@@ -4,16 +4,21 @@ import { useEffect } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import AppButton from '@/components/AppButton';
 import { COLORS } from '@/constants/colors';
 import {
   getAttendanceHistory,
   getTeacherEventAttendance,
 } from '@/lib/attendance';
-import { useAuth } from '@/lib/auth';
+import {
+  signOut,
+  useAuth,
+} from '@/lib/auth';
 import {
   getEventsByTeacher,
   getStudentEvents,
@@ -30,34 +35,9 @@ export default function TabLayout() {
   const {
     profile,
     loading: profileLoading,
+    error: profileError,
   } = useCachedProfile(user?.id);
 
-  /*
-   * If the profile cache somehow has no profile,
-   * retry it instead of permanently hiding
-   * the role-specific tabs.
-   */
-  useEffect(() => {
-    if (
-      user &&
-      !profile &&
-      !profileLoading
-    ) {
-      void refreshCachedProfile(
-        user.id
-      );
-    }
-  }, [
-    user,
-    profile,
-    profileLoading,
-  ]);
-
-  /*
-   * Prefetch data after we know the role.
-   * This makes the other tabs feel faster
-   * when the user opens them.
-   */
   useEffect(() => {
     if (
       !user ||
@@ -96,14 +76,9 @@ export default function TabLayout() {
     profile?.role,
   ]);
 
-  /*
-   * Only show this once while determining
-   * the account role. We do not want the
-   * tab bar rendered with the wrong tabs.
-   */
   if (
     user &&
-    (!profile || profileLoading)
+    profileLoading
   ) {
     return (
       <View
@@ -115,6 +90,87 @@ export default function TabLayout() {
           size="large"
           color={COLORS.primary}
         />
+      </View>
+    );
+  }
+
+  if (
+    user &&
+    !profile
+  ) {
+    const missingProfile =
+      profileError ===
+      'Profile record was not found.';
+
+    return (
+      <View
+        style={
+          styles.errorScreen
+        }
+      >
+        <View
+          style={
+            styles.errorIcon
+          }
+        >
+          <Ionicons
+            name={
+              missingProfile
+                ? 'person-remove-outline'
+                : 'cloud-offline-outline'
+            }
+            size={30}
+            color={COLORS.primary}
+          />
+        </View>
+
+        <Text
+          style={
+            styles.errorTitle
+          }
+        >
+          Unable to load profile
+        </Text>
+
+        <Text
+          style={
+            styles.errorText
+          }
+        >
+          {missingProfile
+            ? 'Your account profile could not be found. Try signing in again.'
+            : 'We could not load your profile. Check your connection and try again.'}
+        </Text>
+
+        <View
+          style={
+            styles.errorActions
+          }
+        >
+          <AppButton
+            theme="primary"
+            title="Retry"
+            icon="refresh-outline"
+            onPress={() => {
+              if (!user) {
+                return;
+              }
+
+              void refreshCachedProfile(
+                user.id
+              );
+            }}
+          />
+
+          <AppButton
+            variant="secondary"
+            title="Sign Out"
+            icon="log-out-outline"
+            onPress={() => {
+              void signOut();
+            }}
+          />
+        </View>
       </View>
     );
   }
@@ -198,10 +254,6 @@ export default function TabLayout() {
         options={{
           title: 'Events',
 
-          /*
-           * undefined = normal visible tab
-           * null = hidden tab
-           */
           href: isStudent
             ? undefined
             : null,
@@ -330,5 +382,52 @@ const styles =
       justifyContent: 'center',
       backgroundColor:
         COLORS.background,
+    },
+
+    errorScreen: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 28,
+      backgroundColor:
+        COLORS.background,
+    },
+
+    errorIcon: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 18,
+      backgroundColor:
+        COLORS.card,
+      borderWidth: 1,
+      borderColor:
+        COLORS.border,
+    },
+
+    errorTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color:
+        COLORS.textPrimary,
+      textAlign: 'center',
+    },
+
+    errorText: {
+      marginTop: 8,
+      fontSize: 14,
+      lineHeight: 20,
+      color:
+        COLORS.textSecondary,
+      textAlign: 'center',
+      maxWidth: 360,
+    },
+
+    errorActions: {
+      width: '100%',
+      maxWidth: 320,
+      marginTop: 20,
     },
   });

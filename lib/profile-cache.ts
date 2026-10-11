@@ -4,7 +4,7 @@ import {
 } from 'react';
 
 import {
-  getProfile,
+  getProfileResult,
   type Profile,
 } from './profiles';
 
@@ -13,6 +13,7 @@ type ProfileCacheSnapshot = {
   cachedProfile: Profile | null;
   initializedUserId: string | null;
   loadingUserId: string | null;
+  error: string | null;
 };
 
 let snapshot: ProfileCacheSnapshot = {
@@ -20,6 +21,7 @@ let snapshot: ProfileCacheSnapshot = {
   cachedProfile: null,
   initializedUserId: null,
   loadingUserId: null,
+  error: null,
 };
 
 let pendingRequest:
@@ -109,60 +111,102 @@ export async function loadCachedProfile(
       ...current,
       loadingUserId:
         userId,
+      error:
+        null,
     })
   );
 
   const request =
-    getProfile(userId)
-      .then((profile) => {
+    getProfileResult(userId)
+      .then((result) => {
         if (
           snapshot.loadingUserId !==
           userId
         ) {
-          return profile;
+          return result.profile;
         }
 
         pendingRequest =
           null;
+
+        if (
+          result.error ||
+          !result.profile
+        ) {
+          const cachedProfile =
+            snapshot.cachedUserId ===
+              userId
+              ? snapshot.cachedProfile
+              : null;
+
+          updateSnapshot(
+            (current) => ({
+              ...current,
+              initializedUserId:
+                userId,
+              loadingUserId:
+                null,
+              error:
+                result.error ||
+                'Unable to load profile.',
+            })
+          );
+
+          return cachedProfile;
+        }
 
         updateSnapshot({
           cachedUserId:
             userId,
 
           cachedProfile:
-            profile,
+            result.profile,
 
           initializedUserId:
             userId,
 
           loadingUserId:
             null,
+
+          error:
+            null,
         });
 
-        return profile;
+        return result.profile;
       })
-      .catch(() => {
+      .catch((error: any) => {
         if (
-          snapshot.loadingUserId ===
+          snapshot.loadingUserId !==
           userId
         ) {
-          pendingRequest =
-            null;
-
-          updateSnapshot(
-            (current) => ({
-              ...current,
-
-              initializedUserId:
-                userId,
-
-              loadingUserId:
-                null,
-            })
+          return getCachedProfile(
+            userId
           );
         }
 
-        return null;
+        pendingRequest =
+          null;
+
+        const cachedProfile =
+          snapshot.cachedUserId ===
+            userId
+            ? snapshot.cachedProfile
+            : null;
+
+        updateSnapshot(
+          (current) => ({
+            ...current,
+            initializedUserId:
+              userId,
+            loadingUserId:
+              null,
+            error:
+              error?.message ||
+              'Unable to load profile.',
+          })
+        );
+
+        return cachedProfile;
       });
 
   pendingRequest =
@@ -203,6 +247,9 @@ export function patchCachedProfile(
 
       initializedUserId:
         userId,
+
+      error:
+        null,
     })
   );
 }
@@ -222,6 +269,9 @@ export function clearProfileCache() {
       null,
 
     loadingUserId:
+      null,
+
+    error:
       null,
   });
 }
@@ -256,12 +306,25 @@ export function useCachedProfile(
   const loading =
     Boolean(
       userId &&
-      state.initializedUserId !==
-        userId
+      !profile &&
+      (
+        state.initializedUserId !==
+          userId ||
+        state.loadingUserId ===
+          userId
+      )
     );
+
+  const error =
+    userId &&
+    state.initializedUserId ===
+      userId
+      ? state.error
+      : null;
 
   return {
     profile,
     loading,
+    error,
   };
 }

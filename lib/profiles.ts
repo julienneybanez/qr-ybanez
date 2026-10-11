@@ -12,9 +12,14 @@ export type Profile = {
   student_id: string | null;
 };
 
-export async function getProfile(
+export type ProfileFetchResult = {
+  profile: Profile | null;
+  error: string | null;
+};
+
+export async function getProfileResult(
   userId: string
-): Promise<Profile | null> {
+): Promise<ProfileFetchResult> {
   const { data, error } =
     await supabase
       .from('profiles')
@@ -24,14 +29,41 @@ export async function getProfile(
       .eq('id', userId)
       .maybeSingle();
 
-  if (
-    error ||
-    !data
-  ) {
-    return null;
+  if (error) {
+    return {
+      profile: null,
+      error:
+        error.message ||
+        'Unable to load profile.',
+    };
   }
 
-  return data as Profile;
+  if (!data) {
+    return {
+      profile: null,
+      error:
+        'Profile record was not found.',
+    };
+  }
+
+  return {
+    profile:
+      data as Profile,
+    error: null,
+  };
+}
+
+export async function getProfile(
+  userId: string
+): Promise<Profile | null> {
+  const {
+    profile,
+  } =
+    await getProfileResult(
+      userId
+    );
+
+  return profile;
 }
 
 export async function updateProfile(
