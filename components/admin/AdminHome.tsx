@@ -72,7 +72,6 @@ export default function AdminHome() {
               <Text style={styles.adminBadgeText}>ADMIN</Text>
             </View>
           </View>
-          <Text style={styles.eyebrow}>Administration</Text>
           <Text style={styles.heroTitle}>Hi, {firstName}!</Text>
           <Text style={styles.heroSubtitle}>Monitor users, events, and attendance records across QR-ATT.</Text>
         </View>
