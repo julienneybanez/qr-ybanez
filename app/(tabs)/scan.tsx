@@ -62,7 +62,6 @@ export default function ScanScreen() {
   return <SafeAreaView style={styles.safeArea} edges={['top']}>
     <View style={styles.header}>
       <Text style={styles.headerTitle}>Scan QR Code</Text>
-      <Text style={styles.headerSubtitle}>Scan an event code to record your attendance.</Text>
     </View>
 
     <View style={styles.cameraSection}>
@@ -130,9 +129,8 @@ function Detail({label,value,valueColor}:{label:string;value:string;valueColor?:
 const C=34,W=4;
 const styles=StyleSheet.create({
   safeArea:{flex:1,backgroundColor:COLORS.navy},
-  header:{backgroundColor:COLORS.navy,paddingHorizontal:20,paddingTop:16,paddingBottom:18},
-  headerTitle:{color:'#fff',fontSize:24,fontWeight:'800',letterSpacing:-.5},
-  headerSubtitle:{marginTop:5,color:'#BCC7E0',fontSize:12,lineHeight:18},
+  header:{backgroundColor:COLORS.navy,paddingHorizontal:20,paddingTop:14,paddingBottom:16},
+  headerTitle:{color:'#fff',fontSize:21,fontWeight:'800',letterSpacing:-.35},
   cameraSection:{flex:1,minHeight:350,backgroundColor:'#101726',position:'relative',alignItems:'center',justifyContent:'center'},
   frame:{width:230,height:230,position:'relative'},
   corner:{position:'absolute',width:C,height:C,borderColor:'#fff'},

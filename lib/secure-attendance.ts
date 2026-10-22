@@ -61,7 +61,7 @@ export type CorrectionRequest = {
 
 export async function getCorrectionRequests(eventId?: string, studentId?: string) {
   let query = supabase.from('attendance_correction_requests')
-    .select('id, event_id, student_id, attendance_id, issue_type, requested_status, reason, status, reviewer_notes, created_at, resolved_at, events (title, event_code), profiles (full_name, student_id)')
+    .select('id, event_id, student_id, attendance_id, issue_type, requested_status, reason, status, reviewer_notes, created_at, resolved_at, events (title, event_code), profiles!attendance_correction_requests_student_id_fkey (full_name, student_id)')
     .order('created_at', { ascending: false });
 
   if (eventId) query = query.eq('event_id', eventId);

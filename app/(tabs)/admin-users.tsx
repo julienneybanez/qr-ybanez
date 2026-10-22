@@ -60,7 +60,7 @@ export default function AdminUsersScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <PageHeader title="User Management" subtitle="Review and correct account profile information and roles." />
+      <PageHeader title="User Management" />
       <View style={styles.container}>
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={19} color={COLORS.textSecondary} />

@@ -67,12 +67,12 @@ export default function EventsScreen(){
     });
   },[sortedEvents,query,filter]);
 
-  if(loading&&events.length===0)return <SafeAreaView style={styles.safeArea} edges={['top']}><PageHeader title="Events" subtitle="Browse school events and see their current status."/><EventsState loading message="Loading events..."/></SafeAreaView>;
+  if(loading&&events.length===0)return <SafeAreaView style={styles.safeArea} edges={['top']}><PageHeader title="Events"/><EventsState loading message="Loading events..."/></SafeAreaView>;
 
   if(profile?.role!=='student')return <SafeAreaView style={styles.safeArea} edges={['top']}><PageHeader title="Events"/><EventsState icon="school-outline" title="Students only" message="Student accounts can browse school events here."/></SafeAreaView>;
 
   return <SafeAreaView style={styles.safeArea} edges={['top']}>
-    <PageHeader title="Events" subtitle="Find ongoing, upcoming, and recently ended school events."/>
+    <PageHeader title="Events"/>
     <View style={styles.container}>
       <View style={styles.searchBox}>
         <Ionicons name="search-outline" size={18} color={COLORS.textSecondary}/>

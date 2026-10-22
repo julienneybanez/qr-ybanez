@@ -57,7 +57,7 @@ export default function AdminReportsScreen(){
   if(profile?.role!=='admin')return <SafeAreaView style={styles.safeArea} edges={['top']}><PageHeader title="Reports"/><View style={styles.center}><Ionicons name="shield-outline" size={34} color={COLORS.primary}/><Text style={styles.emptyTitle}>Admins only</Text></View></SafeAreaView>;
 
   return <SafeAreaView style={styles.safeArea} edges={['top']}>
-    <PageHeader title="System Reports" subtitle="Overall QR-ATT account, event, and attendance summaries."/>
+    <PageHeader title="System Reports"/>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {loading?<View style={styles.loading}><ActivityIndicator size="large" color={COLORS.primary}/><Text style={styles.helper}>Building report...</Text></View>:null}
       {error?<View style={styles.error}><Ionicons name="alert-circle-outline" size={18} color={COLORS.danger}/><Text style={styles.errorText}>{error}</Text></View>:null}

@@ -3,13 +3,12 @@ import { COLORS } from '@/constants/colors';
 
 type Props = { title: string; subtitle?: string };
 
-export default function PageHeader({ title, subtitle }: Props) {
+export default function PageHeader({ title }: Props) {
   return (
     <View style={styles.header}>
       <View style={styles.glowLarge} />
       <View style={styles.glowSmall} />
       <Text style={styles.title}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
   );
 }
@@ -46,12 +45,5 @@ const styles = StyleSheet.create({
     fontSize: 21,
     fontWeight: '800',
     letterSpacing: -0.35,
-  },
-  subtitle: {
-    marginTop: 4,
-    maxWidth: 340,
-    color: '#BCC7E0',
-    fontSize: 11.5,
-    lineHeight: 16,
   },
 });

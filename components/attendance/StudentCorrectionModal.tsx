@@ -88,7 +88,7 @@ export default function StudentCorrectionModal({visible,studentId,initialEventId
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable onPress={onClose} style={styles.back}><Ionicons name="arrow-back" size={21} color="#FFFFFF"/></Pressable>
-        <View><Text style={styles.headerTitle}>Attendance Support</Text><Text style={styles.headerSub}>Requests and status updates</Text></View>
+        <View><Text style={styles.headerTitle}>Attendance Support</Text></View>
       </View>
       <View style={styles.tabs}>
         {(['new','mine'] as const).map(v=><Pressable key={v} onPress={()=>setView(v)} style={[styles.tab,view===v&&styles.tabActive]}><Text style={[styles.tabText,view===v&&styles.tabTextActive]}>{v==='new'?'Report an Issue':'My Requests'}</Text></Pressable>)}
@@ -127,7 +127,7 @@ export default function StudentCorrectionModal({visible,studentId,initialEventId
 }
 const styles=StyleSheet.create({
  screen:{flex:1,backgroundColor:COLORS.background},header:{backgroundColor:COLORS.navy,paddingTop:52,paddingHorizontal:16,paddingBottom:18,flexDirection:'row',alignItems:'center',gap:12},
- back:{width:39,height:39,borderRadius:12,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},headerTitle:{color:'#FFFFFF',fontSize:17,fontWeight:'800'},headerSub:{marginTop:3,color:'#B6C3E0',fontSize:10},
+ back:{width:39,height:39,borderRadius:12,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},headerTitle:{color:'#FFFFFF',fontSize:17,fontWeight:'800'},
  tabs:{flexDirection:'row',gap:8,margin:14},tab:{flex:1,minHeight:39,borderRadius:12,borderWidth:1,borderColor:COLORS.border,backgroundColor:COLORS.card,justifyContent:'center',alignItems:'center'},tabActive:{backgroundColor:COLORS.primarySoft,borderColor:'#97ACFF'},tabText:{color:COLORS.textSecondary,fontWeight:'700',fontSize:11},tabTextActive:{color:COLORS.primary},
  body:{flex:1},content:{paddingHorizontal:15,paddingBottom:36},label:{marginTop:13,marginBottom:8,fontSize:11,fontWeight:'800',color:COLORS.textPrimary},helper:{fontSize:10.5,lineHeight:16,color:COLORS.textSecondary},
  events:{maxHeight:210},eventSearch:{marginTop:8,minHeight:40,paddingHorizontal:12,borderRadius:12,backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,color:COLORS.textPrimary,fontSize:12},eventOption:{flexDirection:'row',alignItems:'center',gap:10,padding:11,backgroundColor:COLORS.card,borderColor:COLORS.border,borderWidth:1,borderRadius:12,marginTop:6},optionSelected:{borderColor:COLORS.primary,backgroundColor:COLORS.primarySoft},

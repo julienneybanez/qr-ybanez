@@ -130,10 +130,7 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <PageHeader
-        title={isTeacher ? 'Attendance' : 'Attendance History'}
-        subtitle={isTeacher ? 'Monitor live attendance by event.' : 'Your recorded school event attendance.'}
-      />
+      <PageHeader title={isTeacher ? 'Attendance' : 'Attendance History'} />
 
       <View style={styles.container}>
         {loading && !hasVisibleData ? (

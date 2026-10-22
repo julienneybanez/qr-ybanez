@@ -118,7 +118,7 @@ export default function AdminAttendanceScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <PageHeader title="Attendance" subtitle="Monitor attendance by event and correct records when needed." />
+      <PageHeader title="Attendance" />
       <View style={styles.container}>
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={18} color={COLORS.textSecondary} />

@@ -268,7 +268,7 @@ export default function AdminEventsScreen(){
       {qrEvent?<EventQRCodeCard event={qrEvent}/>:null}
 
       <View style={styles.listHeader}>
-        <View><Text style={styles.listTitle}>All Events</Text><Text style={styles.listSubtitle}>View and manage Teacher or Admin-created events.</Text></View>
+        <View><Text style={styles.listTitle}>All Events</Text></View>
         {loading?<Text style={styles.loadingText}>Refreshing...</Text>:null}
       </View>
 
@@ -343,7 +343,6 @@ const styles=StyleSheet.create({
   content:{paddingHorizontal:20,paddingTop:12,paddingBottom:110},
   listHeader:{marginTop:8,marginBottom:11,flexDirection:'row',alignItems:'flex-end',justifyContent:'space-between',gap:10},
   listTitle:{fontSize:19,fontWeight:'800',color:COLORS.textPrimary},
-  listSubtitle:{marginTop:3,fontSize:11.5,lineHeight:17,color:COLORS.textSecondary},
   loadingText:{fontSize:9.5,color:COLORS.textSecondary},
   searchBox:{minHeight:46,flexDirection:'row',alignItems:'center',gap:8,borderWidth:1,borderColor:COLORS.border,borderRadius:15,backgroundColor:COLORS.card,paddingHorizontal:12,marginBottom:11},
   searchInput:{flex:1,fontSize:12.5,color:COLORS.textPrimary},
