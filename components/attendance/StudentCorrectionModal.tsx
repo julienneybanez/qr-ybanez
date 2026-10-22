@@ -26,7 +26,8 @@ const ISSUES:{value:CorrectionIssue;label:string}[]=[
 
 export default function StudentCorrectionModal({visible,studentId,initialEventId,initialStatus,onClose,onSubmitted,initialView='new'}:Props){
   const [events,setEvents]=useState<EventOption[]>([]);
-  const [eventSearch,setEventSearch]=useState('');
+  const [pickerOpen,setPickerOpen]=useState(false);
+  const [pickerSearch,setPickerSearch]=useState('');
   const [eventId,setEventId]=useState(initialEventId??'');
   const [issue,setIssue]=useState<CorrectionIssue>(initialStatus?'incorrect_status':'missing');
   const [status,setStatus]=useState<AttendanceStatus>('present');
@@ -49,7 +50,8 @@ export default function StudentCorrectionModal({visible,studentId,initialEventId
   useEffect(()=>{
     if(!visible)return;
     setEventId(initialEventId??'');
-    setEventSearch('');
+    setPickerOpen(false);
+    setPickerSearch('');
     setIssue(initialStatus?'incorrect_status':'missing');
     setStatus(initialStatus==='late'?'present':initialStatus??'present');
     setReason('');
@@ -71,6 +73,17 @@ export default function StudentCorrectionModal({visible,studentId,initialEventId
     return()=>{void supabase.removeChannel(channel)};
   },[visible,studentId]);
 
+  const selectedEvent=events.find(event=>event.id===eventId);
+  const filteredEvents=events.filter(event=>
+    (event.title+' '+event.event_code).toLowerCase().includes(pickerSearch.trim().toLowerCase())
+  );
+
+  const chooseEvent=(id:string)=>{
+    setEventId(id);
+    setPickerOpen(false);
+    setPickerSearch('');
+  };
+
   const submit=async()=>{
     if(!eventId){Alert.alert('Select an event','Choose the event connected to your request.');return;}
     if(reason.trim().length<10){Alert.alert('Explain the issue','Enter at least 10 characters.');return;}
@@ -84,7 +97,7 @@ export default function StudentCorrectionModal({visible,studentId,initialEventId
     Alert.alert('Request sent','Your request is waiting for review.');
   };
 
-  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+  return <Modal visible={visible} animationType="slide" onRequestClose={()=>pickerOpen?setPickerOpen(false):onClose()}>
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable onPress={onClose} style={styles.back}><Ionicons name="arrow-back" size={21} color="#FFFFFF"/></Pressable>
@@ -95,11 +108,21 @@ export default function StudentCorrectionModal({visible,studentId,initialEventId
       </View>
       {view==='new'?<ScrollView style={styles.body} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Event</Text>
-        <Text style={styles.helper}>Select the event that needs correction.</Text>
-        <TextInput value={eventSearch} onChangeText={setEventSearch} placeholder="Search event or code" placeholderTextColor={COLORS.textSecondary} style={styles.eventSearch}/>
-        <ScrollView nestedScrollEnabled style={styles.events}>
-          {events.filter(event=>(event.title+' '+event.event_code).toLowerCase().includes(eventSearch.trim().toLowerCase())).map(event=><Pressable key={event.id} onPress={()=>setEventId(event.id)} style={[styles.eventOption,eventId===event.id&&styles.optionSelected]}><View style={{flex:1}}><Text style={styles.optionName}>{event.title}</Text><Text style={styles.meta}>{event.event_code}</Text></View>{eventId===event.id?<Ionicons name="checkmark-circle" size={20} color={COLORS.primary}/>:null}</Pressable>)}
-        </ScrollView>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={selectedEvent?'Change event, '+selectedEvent.title:'Select an event'}
+          onPress={()=>{setPickerSearch('');setPickerOpen(true)}}
+          style={[styles.eventSelector,selectedEvent&&styles.optionSelected]}
+        >
+          <Ionicons name="calendar-outline" size={19} color={COLORS.primary}/>
+          <View style={styles.selectedEventCopy}>
+            <Text style={[styles.selectorTitle,!selectedEvent&&styles.selectorPlaceholder]} numberOfLines={1}>
+              {selectedEvent?.title??'Select an event'}
+            </Text>
+            {selectedEvent?<Text style={styles.meta}>{selectedEvent.event_code}</Text>:null}
+          </View>
+          <Ionicons name="chevron-down" size={19} color={COLORS.textSecondary}/>
+        </Pressable>
         <Text style={styles.label}>What happened?</Text>
         {ISSUES.map(option=><Pressable key={option.value} onPress={()=>setIssue(option.value)} style={[styles.radio,issue===option.value&&styles.optionSelected]}><Ionicons name={issue===option.value?'radio-button-on':'radio-button-off'} color={COLORS.primary} size={18}/><Text style={styles.optionName}>{option.label}</Text></Pressable>)}
         <Text style={styles.label}>Requested status</Text>
@@ -122,15 +145,79 @@ export default function StudentCorrectionModal({visible,studentId,initialEventId
           {request.status==='pending'||request.status==='under_review'?<Pressable onPress={()=>void cancel(request.id)} style={styles.cancel}><Text style={styles.cancelText}>Cancel Request</Text></Pressable>:null}
         </View>)}
       </ScrollView>}
+      {pickerOpen?<View style={styles.pickerOverlay}>
+        <Pressable accessibilityLabel="Close event selector" onPress={()=>setPickerOpen(false)} style={styles.pickerBackdrop}/>
+        <View style={styles.pickerSheet}>
+          <View style={styles.pickerHandle}/>
+          <View style={styles.pickerHeader}>
+            <View style={styles.pickerHeaderText}>
+              <Text style={styles.pickerTitle}>Select an event</Text>
+              <Text style={styles.pickerSub}>Search by event name or code</Text>
+            </View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close event selector" onPress={()=>setPickerOpen(false)} style={styles.pickerClose}>
+              <Ionicons name="close" size={20} color={COLORS.textPrimary}/>
+            </Pressable>
+          </View>
+          <View style={styles.pickerSearchBox}>
+            <Ionicons name="search-outline" color={COLORS.textSecondary} size={19}/>
+            <TextInput
+              value={pickerSearch}
+              onChangeText={setPickerSearch}
+              placeholder="Search event or code"
+              placeholderTextColor={COLORS.textSecondary}
+              style={styles.pickerSearchInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {pickerSearch.length>0?<Pressable accessibilityLabel="Clear search" onPress={()=>setPickerSearch('')}>
+              <Ionicons name="close-circle" color={COLORS.textSecondary} size={19}/>
+            </Pressable>:null}
+          </View>
+          <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.pickerListContent}>
+            {filteredEvents.length===0?<View style={styles.pickerEmpty}>
+              <Ionicons name="search-outline" size={25} color={COLORS.textSecondary}/>
+              <Text style={styles.helper}>{events.length===0?'No events available':'No matching events'}</Text>
+            </View>:filteredEvents.map(event=><Pressable
+              key={event.id}
+              accessibilityRole="button"
+              accessibilityState={{selected:event.id===eventId}}
+              onPress={()=>chooseEvent(event.id)}
+              style={[styles.pickerOption,event.id===eventId&&styles.pickerOptionSelected]}
+            >
+              <View style={styles.pickerOptionCopy}>
+                <Text style={styles.optionName} numberOfLines={2}>{event.title}</Text>
+                <Text style={styles.meta}>Code: {event.event_code}</Text>
+              </View>
+              {event.id===eventId?<Ionicons name="checkmark-circle" size={21} color={COLORS.primary}/>:null}
+            </Pressable>)}
+          </ScrollView>
+        </View>
+      </View>:null}
     </View>
   </Modal>;
 }
 const styles=StyleSheet.create({
- screen:{flex:1,backgroundColor:COLORS.background},header:{backgroundColor:COLORS.navy,paddingTop:52,paddingHorizontal:16,paddingBottom:18,flexDirection:'row',alignItems:'center',gap:12},
+ screen:{flex:1,backgroundColor:COLORS.background},header:{backgroundColor:COLORS.navy,paddingTop:14,paddingHorizontal:16,paddingBottom:16,flexDirection:'row',alignItems:'center',gap:12},
  back:{width:39,height:39,borderRadius:12,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},headerTitle:{color:'#FFFFFF',fontSize:17,fontWeight:'800'},
  tabs:{flexDirection:'row',gap:8,margin:14},tab:{flex:1,minHeight:39,borderRadius:12,borderWidth:1,borderColor:COLORS.border,backgroundColor:COLORS.card,justifyContent:'center',alignItems:'center'},tabActive:{backgroundColor:COLORS.primarySoft,borderColor:'#97ACFF'},tabText:{color:COLORS.textSecondary,fontWeight:'700',fontSize:11},tabTextActive:{color:COLORS.primary},
  body:{flex:1},content:{paddingHorizontal:15,paddingBottom:36},label:{marginTop:13,marginBottom:8,fontSize:11,fontWeight:'800',color:COLORS.textPrimary},helper:{fontSize:10.5,lineHeight:16,color:COLORS.textSecondary},
- events:{maxHeight:210},eventSearch:{marginTop:8,minHeight:40,paddingHorizontal:12,borderRadius:12,backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,color:COLORS.textPrimary,fontSize:12},eventOption:{flexDirection:'row',alignItems:'center',gap:10,padding:11,backgroundColor:COLORS.card,borderColor:COLORS.border,borderWidth:1,borderRadius:12,marginTop:6},optionSelected:{borderColor:COLORS.primary,backgroundColor:COLORS.primarySoft},
+ eventSelector:{flexDirection:'row',alignItems:'center',gap:10,minHeight:54,paddingHorizontal:12,paddingVertical:9,backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:13},
+ selectedEventCopy:{flex:1,minWidth:0},selectorTitle:{fontSize:12.5,fontWeight:'800',color:COLORS.textPrimary},
+ selectorPlaceholder:{fontWeight:'500',color:COLORS.textSecondary},
+ optionSelected:{borderColor:COLORS.primary,backgroundColor:COLORS.primarySoft},
+ pickerOverlay:{...StyleSheet.absoluteFillObject,zIndex:20,justifyContent:'flex-end',backgroundColor:'rgba(10,17,41,0.55)'},
+ pickerBackdrop:{...StyleSheet.absoluteFillObject},
+ pickerSheet:{height:'68%',minHeight:300,backgroundColor:COLORS.background,borderTopLeftRadius:24,borderTopRightRadius:24,paddingHorizontal:16,paddingBottom:22,overflow:'hidden'},
+ pickerHandle:{alignSelf:'center',width:42,height:5,borderRadius:8,backgroundColor:COLORS.border,marginTop:10,marginBottom:15},
+ pickerHeader:{flexDirection:'row',alignItems:'center',marginBottom:15,gap:12},
+ pickerHeaderText:{flex:1},pickerTitle:{fontSize:17,fontWeight:'800',color:COLORS.textPrimary},pickerSub:{marginTop:3,fontSize:10.5,color:COLORS.textSecondary},
+ pickerClose:{width:36,height:36,alignItems:'center',justifyContent:'center',borderRadius:12,backgroundColor:COLORS.card},
+ pickerSearchBox:{flexDirection:'row',alignItems:'center',gap:9,minHeight:47,paddingHorizontal:12,backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:14},
+ pickerSearchInput:{flex:1,fontSize:12.5,color:COLORS.textPrimary},
+ pickerList:{flex:1,marginTop:12},pickerListContent:{paddingBottom:20},
+ pickerOption:{flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:13,paddingVertical:13,marginBottom:8,backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:14},
+ pickerOptionSelected:{borderColor:COLORS.primary,backgroundColor:COLORS.primarySoft},
+ pickerOptionCopy:{flex:1,minWidth:0},pickerEmpty:{minHeight:120,alignItems:'center',justifyContent:'center',gap:8},
  optionName:{fontSize:12,color:COLORS.textPrimary,fontWeight:'700'},meta:{fontSize:10,color:COLORS.textSecondary,marginTop:4},
  radio:{flexDirection:'row',gap:10,alignItems:'center',padding:10,marginTop:5,borderRadius:12,borderWidth:1,borderColor:COLORS.border,backgroundColor:COLORS.card},
  statusRow:{flexDirection:'row',gap:7},statusChoice:{flex:1,minHeight:37,justifyContent:'center',alignItems:'center',backgroundColor:COLORS.card,borderRadius:12,borderWidth:1,borderColor:COLORS.border},statusText:{fontSize:10.5,fontWeight:'800',color:COLORS.textSecondary},

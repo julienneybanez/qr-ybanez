@@ -125,7 +125,7 @@ export default function EventAttendeesModal({visible,group,editable=false,onClos
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable onPress={onClose} style={styles.headerAction}><Ionicons name="arrow-back" size={21} color="#FFFFFF"/></Pressable>
-        <View style={styles.headerCopy}><Text style={styles.title} numberOfLines={1}>{group.title}</Text><Text style={styles.sub}>{group.eventCode} · {group.attendeeCount} attendees</Text></View>
+        <View style={styles.headerCopy}><Text style={styles.title} numberOfLines={1}>{group.title}</Text><Text style={styles.sub}>{group.eventCode} · {group.attendeeCount} {group.attendeeCount === 1 ? 'attendee' : 'attendees'}</Text></View>
         <Pressable onPress={onExport} style={styles.headerAction}><Ionicons name="download-outline" size={20} color="#FFFFFF"/></Pressable>
       </View>
       <View style={styles.summary}>
@@ -198,7 +198,7 @@ export default function EventAttendeesModal({visible,group,editable=false,onClos
 
 function Empty({title}:{title:string}){return <View style={styles.empty}><Ionicons name="people-outline" color={COLORS.primary} size={25}/><Text style={styles.helper}>{title}</Text></View>}
 const styles=StyleSheet.create({
-  screen:{flex:1,backgroundColor:COLORS.background},header:{backgroundColor:COLORS.navy,paddingTop:54,paddingHorizontal:16,paddingBottom:15,flexDirection:'row',alignItems:'center',gap:10},
+  screen:{flex:1,backgroundColor:COLORS.background},header:{backgroundColor:COLORS.navy,paddingTop:14,paddingHorizontal:16,paddingBottom:16,flexDirection:'row',alignItems:'center',gap:10},
   headerAction:{height:38,width:38,borderRadius:12,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},
   headerCopy:{flex:1},title:{fontSize:16,fontWeight:'800',color:'#FFFFFF'},sub:{marginTop:4,fontSize:10,color:'#B2C0DF'},
   summary:{margin:14,marginBottom:8,borderRadius:17,borderWidth:1,borderColor:COLORS.border,backgroundColor:COLORS.card,flexDirection:'row',paddingVertical:13},
