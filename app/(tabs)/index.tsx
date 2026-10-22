@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AdminHome from '@/components/admin/AdminHome';
 import { COLORS } from '@/constants/colors';
 import { useAuth } from '@/lib/auth';
 import { useCachedProfile } from '@/lib/profile-cache';
@@ -10,6 +11,12 @@ export default function Index() {
   const { user } = useAuth();
   const { profile } = useCachedProfile(user?.id);
   const isTeacher = profile?.role === 'teacher';
+  const isAdmin = profile?.role === 'admin';
+
+  if (isAdmin) {
+    return <AdminHome />;
+  }
+
   const firstName = profile?.full_name?.trim().split(/\s+/)[0] || (isTeacher ? 'Teacher' : 'there');
 
   return (

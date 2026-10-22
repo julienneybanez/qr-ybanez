@@ -2,7 +2,8 @@ import { supabase } from './supabase';
 
 export type Role =
   | 'student'
-  | 'teacher';
+  | 'teacher'
+  | 'admin';
 
 export type Profile = {
   id: string;

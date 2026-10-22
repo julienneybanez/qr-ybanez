@@ -1,9 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '@/constants/colors';
-import type { Role } from '@/lib/profiles';
 
-type Props = { role: Role; disabled: boolean; onChange: (role: Role) => void };
+export type RegistrationRole = 'student' | 'teacher';
+
+type Props = {
+  role: RegistrationRole;
+  disabled: boolean;
+  onChange: (role: RegistrationRole) => void;
+};
 
 export default function RoleSelector({ role, disabled, onChange }: Props) {
   return (
@@ -14,7 +19,14 @@ export default function RoleSelector({ role, disabled, onChange }: Props) {
   );
 }
 
-type RoleCardProps = { label: string; icon: keyof typeof Ionicons.glyphMap; selected: boolean; onPress: () => void; disabled: boolean };
+type RoleCardProps = {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  selected: boolean;
+  onPress: () => void;
+  disabled: boolean;
+};
+
 function RoleCard({ label, icon, selected, onPress, disabled }: RoleCardProps) {
   return (
     <Pressable onPress={onPress} disabled={disabled} style={({ pressed }) => [styles.roleCard, selected && styles.roleCardSelected, pressed && styles.pressed]}>

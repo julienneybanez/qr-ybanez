@@ -6,15 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppButton from '@/components/AppButton';
 import AuthInput from '@/components/auth/AuthInput';
 import RegistrationSuccessCard from '@/components/auth/RegistrationSuccessCard';
-import RoleSelector from '@/components/auth/RoleSelector';
+import RoleSelector, { type RegistrationRole } from '@/components/auth/RoleSelector';
 import { COLORS } from '@/constants/colors';
 import { signUp } from '@/lib/auth';
-import type { Role } from '@/lib/profiles';
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const [fullName,setFullName]=useState('');
-  const [role,setRole]=useState<Role>('student');
+  const [role,setRole]=useState<RegistrationRole>('student');
   const [studentId,setStudentId]=useState('');
   const [email,setEmail]=useState('');
   const [password,setPassword]=useState('');

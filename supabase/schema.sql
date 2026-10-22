@@ -6,7 +6,7 @@
 -- This file represents the current database structure used by
 -- QR-Ybanez, including:
 --
---   • Student and Teacher profiles
+--   • Student, Teacher, and Admin profiles
 --   • School-issued Student IDs
 --   • Event management
 --   • Secure QR attendance validation
@@ -51,7 +51,8 @@ create table if not exists public.profiles (
     check (
       role in (
         'student',
-        'teacher'
+        'teacher',
+        'admin'
       )
     ),
 
@@ -83,7 +84,7 @@ where student_id is not null;
 -- Student:
 --   student_id is required
 --
--- Teacher:
+-- Teacher/Admin:
 --   student_id must be NULL
 -- ------------------------------------------------------------
 
@@ -100,7 +101,7 @@ check (
   )
   or
   (
-    role = 'teacher'
+    role in ('teacher', 'admin')
     and student_id is null
   )
 );
@@ -175,6 +176,7 @@ with check (
 --
 -- Students must supply a Student ID.
 -- Teachers always receive student_id = NULL.
+-- Admin is intentionally not accepted from public signup metadata.
 -- ============================================================
 
 create or replace function public.handle_new_user()
@@ -318,6 +320,47 @@ on public.profiles
 for each row
 execute procedure public.prevent_profile_role_change();
 
+
+
+-- ============================================================
+-- ADMIN ROLE CHECK
+-- ============================================================
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $
+  select exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and role = 'admin'
+  );
+$;
+
+revoke all
+on function public.is_admin()
+from public;
+
+grant execute
+on function public.is_admin()
+to authenticated;
+
+
+drop policy
+if exists "Admins can view all profiles"
+on public.profiles;
+
+create policy
+"Admins can view all profiles"
+on public.profiles
+for select
+using (
+  public.is_admin()
+);
 
 
 -- ============================================================
@@ -475,6 +518,26 @@ with check (
   )
 );
 
+
+
+-- ------------------------------------------------------------
+-- Admin event oversight
+-- ------------------------------------------------------------
+
+drop policy
+if exists "Admins can update all events"
+on public.events;
+
+create policy
+"Admins can update all events"
+on public.events
+for update
+using (
+  public.is_admin()
+)
+with check (
+  public.is_admin()
+);
 
 
 -- ============================================================
@@ -674,6 +737,23 @@ using (
 
 
 -- ------------------------------------------------------------
+-- Admins may view all attendance.
+-- ------------------------------------------------------------
+
+drop policy
+if exists "Admins can view all attendance"
+on public.attendance;
+
+create policy
+"Admins can view all attendance"
+on public.attendance
+for select
+using (
+  public.is_admin()
+);
+
+
+-- ------------------------------------------------------------
 -- Teachers may read profile information for Students who
 -- attended their own events.
 --
@@ -707,6 +787,27 @@ using (
   )
 );
 
+
+
+-- ============================================================
+-- REPORTING / ADMIN INDEXES
+-- ============================================================
+
+create index
+if not exists profiles_role_idx
+on public.profiles (role);
+
+create index
+if not exists events_created_by_idx
+on public.events (created_by);
+
+create index
+if not exists attendance_event_id_idx
+on public.attendance (event_id);
+
+create index
+if not exists attendance_scanned_at_idx
+on public.attendance (scanned_at);
 
 
 -- ============================================================
