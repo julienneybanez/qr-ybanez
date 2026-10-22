@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminAttendanceEditModal from '@/components/admin/AdminAttendanceEditModal';
@@ -27,6 +27,8 @@ export default function AdminAttendanceScreen() {
   const { profile } = useCachedProfile(user?.id);
   const [groups, setGroups] = useState<AdminEventAttendanceGroup[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  // Open a route-specified event only once; do not override user choice on refresh.
+  const handledRouteEventId = useRef<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<AdminAttendanceRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,7 +65,16 @@ export default function AdminAttendanceScreen() {
   }, [profile?.role, loadAttendance]);
 
   useEffect(() => {
-    if (eventId && groups.some((group) => group.eventId === eventId)) {
+    if (!eventId) {
+      handledRouteEventId.current = null;
+      return;
+    }
+
+    if (
+      handledRouteEventId.current !== eventId &&
+      groups.some((group) => group.eventId === eventId)
+    ) {
+      handledRouteEventId.current = eventId;
       setSelectedEventId(eventId);
     }
   }, [eventId, groups]);
