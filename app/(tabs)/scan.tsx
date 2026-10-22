@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppButton from '@/components/AppButton';
 import { COLORS } from '@/constants/colors';
@@ -64,26 +64,60 @@ export default function ScanScreen() {
       <Text style={styles.headerTitle}>Scan QR Code</Text>
     </View>
 
-    <View style={styles.cameraSection}>
-      {isFocused?<CameraView style={StyleSheet.absoluteFill} facing="back" barcodeScannerSettings={{barcodeTypes:['qr']}} onBarcodeScanned={scanned?undefined:handleBarcodeScanned}/>:null}
-      <View style={styles.frame}>
-        <View style={[styles.corner,styles.topLeft]}/><View style={[styles.corner,styles.topRight]}/><View style={[styles.corner,styles.bottomLeft]}/><View style={[styles.corner,styles.bottomRight]}/>
-        {!scanned?<View style={styles.scanLine}/>:null}
-      </View>
-      <View style={styles.cameraHint}><Ionicons name="scan-outline" size={20} color="#fff"/><Text style={styles.cameraHintText}>Align the event QR within the frame</Text></View>
-    </View>
-
-    <View style={styles.resultCard}>
-      {processing?
-        <><ActivityIndicator size="small" color={COLORS.primary}/><Text style={styles.resultTitle}>Verifying attendance...</Text></>:
-        scanned&&result?
-          result.alreadyCheckedIn?
-            <AlreadyCheckedInResult result={result} onScanAgain={handleScanAgain}/>:
-          result.success?
-            <SuccessResult result={result} onScanAgain={handleScanAgain}/>:
-            <ErrorResult result={result} onScanAgain={handleScanAgain}/>:
-          <><View style={styles.resultIcon}><Ionicons name="qr-code-outline" size={22} color={COLORS.primary}/></View><Text style={styles.resultTitle}>Ready to scan</Text><Text style={styles.resultMessage}>Hold your phone steady and keep the QR code inside the guide.</Text></>}
-    </View>
+    {!scanned ? (
+      <>
+        <View style={styles.cameraSection}>
+          {isFocused ? (
+            <CameraView
+              style={StyleSheet.absoluteFill}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={handleBarcodeScanned}
+            />
+          ) : null}
+          <View style={styles.frame}>
+            <View style={[styles.corner,styles.topLeft]}/>
+            <View style={[styles.corner,styles.topRight]}/>
+            <View style={[styles.corner,styles.bottomLeft]}/>
+            <View style={[styles.corner,styles.bottomRight]}/>
+            <View style={styles.scanLine}/>
+          </View>
+          <View style={styles.cameraHint}>
+            <Ionicons name="scan-outline" size={20} color="#fff"/>
+            <Text style={styles.cameraHintText}>Align the event QR within the frame</Text>
+          </View>
+        </View>
+        <View style={styles.readyCard}>
+          <View style={styles.resultIcon}>
+            <Ionicons name="qr-code-outline" size={22} color={COLORS.primary}/>
+          </View>
+          <Text style={styles.resultTitle}>Ready to scan</Text>
+          <Text style={styles.resultMessage}>Hold your phone steady and keep the QR code inside the guide.</Text>
+        </View>
+      </>
+    ) : (
+      <ScrollView
+        style={styles.resultScroll}
+        contentContainerStyle={styles.resultCard}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {processing ? (
+          <>
+            <ActivityIndicator size="small" color={COLORS.primary}/>
+            <Text style={styles.resultTitle}>Verifying attendance...</Text>
+          </>
+        ) : result?.alreadyCheckedIn ? (
+          <AlreadyCheckedInResult result={result} onScanAgain={handleScanAgain}/>
+        ) : result?.success ? (
+          <SuccessResult result={result} onScanAgain={handleScanAgain}/>
+        ) : result ? (
+          <ErrorResult result={result} onScanAgain={handleScanAgain}/>
+        ) : (
+          <ActivityIndicator size="small" color={COLORS.primary}/>
+        )}
+      </ScrollView>
+    )}
   </SafeAreaView>;
 }
 
@@ -176,7 +210,9 @@ const styles=StyleSheet.create({
   scanLine:{position:'absolute',left:14,right:14,top:'50%',height:3,borderRadius:2,backgroundColor:'#5F82FF',shadowColor:'#5F82FF',shadowOpacity:.9,shadowRadius:9,elevation:7},
   cameraHint:{position:'absolute',left:22,right:22,bottom:18,backgroundColor:'rgba(9,14,31,.7)',borderRadius:16,paddingHorizontal:14,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8},
   cameraHintText:{color:'#fff',fontSize:12,fontWeight:'600'},
-  resultCard:{backgroundColor:COLORS.card,paddingHorizontal:20,paddingTop:16,paddingBottom:90,alignItems:'center'},
+  readyCard:{backgroundColor:COLORS.card,paddingHorizontal:20,paddingTop:12,paddingBottom:18,alignItems:'center'},
+  resultScroll:{flex:1,backgroundColor:COLORS.card},
+  resultCard:{flexGrow:1,backgroundColor:COLORS.card,paddingHorizontal:20,paddingTop:24,paddingBottom:24,alignItems:'center',justifyContent:'center'},
   resultIcon:{width:46,height:46,borderRadius:15,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center',marginBottom:8},
   resultIconError:{backgroundColor:COLORS.dangerSoft},
   resultTitle:{fontSize:16,fontWeight:'800',color:COLORS.textPrimary,textAlign:'center',marginTop:4},
