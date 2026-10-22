@@ -201,70 +201,35 @@ export default function TeacherScreen() {
     setEditingPart('date');
   };
 
-  const openPicker = (
-    target: EditTarget
-  ) => {
+  const openPicker = (target: EditTarget, part: 'date' | 'time') => {
     setMessage(null);
+    setEditingPart(part);
     setEditTarget(target);
-    setEditingPart('date');
   };
 
-  const onPickerChange = (
-    event: DateTimePickerEvent,
-    selected?: Date
-  ) => {
-    if (!editTarget) {
+  const closePicker = () => {
+    setEditTarget(null);
+  };
+
+  const onPickerChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (!editTarget) return;
+
+    if (event.type === 'dismissed' || !selected) {
+      if (isAndroid) closePicker();
       return;
     }
 
-    if (
-      event.type === 'dismissed' ||
-      !selected
-    ) {
-      setEditTarget(null);
-      setEditingPart('date');
-      return;
-    }
-
-    const current =
-      editTarget === 'start'
-        ? startDate
-        : endDate;
-
+    const current = editTarget === 'start' ? startDate : endDate;
     const next = new Date(current);
 
-    if (
-      isAndroid &&
-      editingPart === 'date'
-    ) {
+    if (editingPart === 'date') {
       next.setFullYear(
         selected.getFullYear(),
         selected.getMonth(),
         selected.getDate()
-      );
-    } else if (
-      isAndroid &&
-      editingPart === 'time'
-    ) {
-      next.setHours(
-        selected.getHours(),
-        selected.getMinutes(),
-        0,
-        0
       );
     } else {
-      next.setFullYear(
-        selected.getFullYear(),
-        selected.getMonth(),
-        selected.getDate()
-      );
-
-      next.setHours(
-        selected.getHours(),
-        selected.getMinutes(),
-        0,
-        0
-      );
+      next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
     }
 
     if (editTarget === 'start') {
@@ -273,15 +238,10 @@ export default function TeacherScreen() {
       setEndDate(next);
     }
 
-    if (
-      isAndroid &&
-      editingPart === 'date'
-    ) {
-      setEditingPart('time');
-    } else {
-      setEditTarget(null);
-      setEditingPart('date');
-    }
+    // Android has separate native Date and Time dialogs. Each closes
+    // on selection, so either control can reopen its own picker reliably.
+    // iOS keeps the spinner open until the user taps Done.
+    if (isAndroid) closePicker();
   };
 
   const handleQuickEnd = (
@@ -469,6 +429,7 @@ export default function TeacherScreen() {
 
     setQrEvent(null);
     setMessage(null);
+    setEditTarget(null);
   };
 
   const handleShowQr = (
@@ -591,6 +552,7 @@ export default function TeacherScreen() {
           onLateAfterMinutesChange={setLateAfterMinutes}
           onOpenPicker={openPicker}
           onPickerChange={onPickerChange}
+          onClosePicker={closePicker}
           onQuickEnd={handleQuickEnd}
           onSave={() => {
             void handleSaveEvent();
