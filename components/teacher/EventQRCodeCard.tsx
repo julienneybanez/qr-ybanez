@@ -78,10 +78,10 @@ export default function EventQRCodeCard({event}:Props){
     </View>
 
     <View style={styles.refreshRow}>
-      <Ionicons name="refresh-cw" size={15} color={COLORS.primary}/>
+      <Ionicons name="refresh-outline" size={15} color={COLORS.primary}/>
       <Text style={styles.refreshLabel}>{valid?'Code expires in '+timeRemaining+'s':'Waiting for current code'}</Text>
     </View>
-    <View style={styles.progress}><View style={[styles.progressInner,{width:(Math.min(40,timeRemaining)/40*100)+'%'}]}/></View>
+    <View style={styles.progress}><View style={[styles.progressInner,{width:`${Math.min(40,timeRemaining)/40*100}%` as const}]}/></View>
     <Text style={styles.note}>The QR refreshes every 30 seconds. Screenshots of expired codes cannot be used.</Text>
     {error?<Pressable onPress={()=>{setLoading(true);setError(null);void issueEventToken(event.id).then(r=>{setIssued(r.data);setError(r.error);setLoading(false);setNow(Date.now())})}} style={styles.retry}><Ionicons name="refresh-outline" size={15} color={COLORS.primary}/><Text style={styles.retryText}>Retry now</Text></Pressable>:null}
   </View>;
