@@ -77,7 +77,11 @@ export default function ScanScreen() {
       {processing?
         <><ActivityIndicator size="small" color={COLORS.primary}/><Text style={styles.resultTitle}>Verifying attendance...</Text></>:
         scanned&&result?
-          result.success?<SuccessResult result={result} onScanAgain={handleScanAgain}/>:<ErrorResult result={result} onScanAgain={handleScanAgain}/>:
+          result.alreadyCheckedIn?
+            <AlreadyCheckedInResult result={result} onScanAgain={handleScanAgain}/>:
+          result.success?
+            <SuccessResult result={result} onScanAgain={handleScanAgain}/>:
+            <ErrorResult result={result} onScanAgain={handleScanAgain}/>:
           <><View style={styles.resultIcon}><Ionicons name="qr-code-outline" size={22} color={COLORS.primary}/></View><Text style={styles.resultTitle}>Ready to scan</Text><Text style={styles.resultMessage}>Hold your phone steady and keep the QR code inside the guide.</Text></>}
     </View>
   </SafeAreaView>;
@@ -107,6 +111,37 @@ function SuccessResult({result,onScanAgain}:{result:RegisterResult;onScanAgain:(
       {late
         ? 'This scan was after the event\'s '+(result.lateAfterMinutes??15)+'-minute late threshold.'
         : 'Your attendance was recorded within the event\'s allowed on-time window.'}
+    </Text>
+    <AppButton theme="primary" title="Scan Another" icon="refresh-outline" onPress={onScanAgain}/>
+  </>;
+}
+
+function AlreadyCheckedInResult({result,onScanAgain}:{result:RegisterResult;onScanAgain:()=>void}){
+  const status=result.attendanceStatus??'present';
+  const statusLabel=status.charAt(0).toUpperCase()+status.slice(1);
+  const statusColor=status==='late'?COLORS.warning:status==='excused'?COLORS.primary:COLORS.success;
+  const originalTime=result.recordedAt
+    ?new Date(result.recordedAt).toLocaleString(undefined,{
+      month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'
+    })
+    :'Unavailable';
+
+  return <>
+    <View style={[styles.resultIcon,{backgroundColor:COLORS.successSoft}]}>
+      <Ionicons name="checkmark-done-outline" size={23} color={COLORS.success}/>
+    </View>
+    <Text style={styles.resultTitle}>Already Checked In</Text>
+    <Text style={styles.eventTitle}>{result.eventTitle||'School Event'}</Text>
+    {result.eventCode?<Text style={styles.eventCode}>{result.eventCode}</Text>:null}
+
+    <View style={styles.confirmationBox}>
+      <Detail label="Attendance status" value={statusLabel} valueColor={statusColor}/>
+      <View style={styles.divider}/>
+      <Detail label="Originally recorded" value={originalTime}/>
+      {result.studentNumber?<><View style={styles.divider}/><Detail label="Student ID" value={result.studentNumber}/></>:null}
+    </View>
+    <Text style={styles.resultMessage}>
+      Your attendance for this event has already been recorded. You do not need to scan again.
     </Text>
     <AppButton theme="primary" title="Scan Another" icon="refresh-outline" onPress={onScanAgain}/>
   </>;
