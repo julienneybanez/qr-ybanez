@@ -79,7 +79,7 @@ export default function Index() {
           <View style={styles.heroTop}>
             <View style={styles.brandRow}>
               <View style={styles.logoShell}><Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain"/></View>
-              <View><Text style={styles.brandTitle}>QR Attendance</Text><Text style={styles.brandSub}>QR-Ybanez</Text></View>
+              <View style={styles.brandCopy}><Text style={styles.brandTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>QR Attendance</Text></View>
             </View>
             <View style={styles.avatar}><Text style={styles.avatarText}>{(profile?.full_name?.trim()?.[0] || 'U').toUpperCase()}</Text></View>
           </View>
@@ -133,10 +133,10 @@ function QuickAction({title,subtitle,icon,onPress}:QuickActionProps){
 
 const styles=StyleSheet.create({
   safeArea:{flex:1,backgroundColor:COLORS.navy},container:{flex:1,backgroundColor:COLORS.background},content:{paddingBottom:104},
-  hero:{minHeight:170,backgroundColor:COLORS.navy,paddingHorizontal:20,paddingTop:18,paddingBottom:34,overflow:'hidden'},
-  glowLarge:{position:'absolute',width:210,height:210,borderRadius:105,backgroundColor:'#2148CC',right:-96,bottom:-120},glowSmall:{position:'absolute',width:135,height:135,borderRadius:68,backgroundColor:'#376BFF',right:46,bottom:-86,opacity:.72},
-  heroTop:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},brandRow:{flexDirection:'row',alignItems:'center',gap:11},logoShell:{width:44,height:44,borderRadius:14,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},logo:{width:32,height:32},brandTitle:{color:'#fff',fontSize:14,fontWeight:'800'},brandSub:{color:'#9FAACA',fontSize:11,fontWeight:'600',marginTop:2},avatar:{width:40,height:40,borderRadius:20,backgroundColor:'#EEF3FF',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'rgba(255,255,255,.35)'},avatarText:{color:COLORS.primaryStrong,fontWeight:'800'},
-  body:{paddingHorizontal:16,marginTop:-42},
+  hero:{minHeight:114,backgroundColor:COLORS.navy,paddingHorizontal:20,paddingTop:14,paddingBottom:18,overflow:'hidden'},
+  glowLarge:{position:'absolute',width:170,height:170,borderRadius:85,backgroundColor:'#2148CC',right:-88,bottom:-115},glowSmall:{position:'absolute',width:108,height:108,borderRadius:54,backgroundColor:'#376BFF',right:40,bottom:-79,opacity:.65},
+  heroTop:{flexDirection:'row',alignItems:'center',gap:10},brandRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:11},logoShell:{width:44,height:44,borderRadius:14,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},logo:{width:32,height:32},brandCopy:{flex:1,minWidth:0},brandTitle:{color:'#fff',fontSize:17,fontWeight:'800',letterSpacing:-.3},avatar:{width:40,height:40,flexShrink:0,borderRadius:20,backgroundColor:'#EEF3FF',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'rgba(255,255,255,.35)'},avatarText:{color:COLORS.primaryStrong,fontWeight:'800'},
+  body:{paddingHorizontal:16,marginTop:-20},
   summaryRow:{flexDirection:'row',gap:8,marginBottom:10},
   summaryCard:{flex:1,minHeight:84,backgroundColor:'#fff',borderWidth:1,borderColor:COLORS.border,borderRadius:17,padding:10},
   summaryIcon:{width:29,height:29,borderRadius:10,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center'},
