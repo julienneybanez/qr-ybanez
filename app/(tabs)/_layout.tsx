@@ -84,7 +84,8 @@ export default function TabLayout(){
     <Tabs.Screen name="teacher" options={{title:'Manage',href:isTeacher?undefined:null,tabBarIcon:({color,focused})=><Ionicons name={focused?'calendar':'calendar-outline'} color={color} size={23}/>}}/>
     <Tabs.Screen name="admin-users" options={{title:'Users',href:isAdmin?undefined:null,tabBarIcon:({color,focused})=><Ionicons name={focused?'people':'people-outline'} color={color} size={23}/>}}/>
     <Tabs.Screen name="admin-events" options={{title:'Events',href:isAdmin?undefined:null,tabBarIcon:({color,focused})=><Ionicons name={focused?'calendar':'calendar-outline'} color={color} size={23}/>}}/>
-    <Tabs.Screen name="admin-attendance" options={{title:'Attendance',href:isAdmin?undefined:null,tabBarIcon:({color,focused})=><Ionicons name={focused?'checkmark-done-circle':'checkmark-done-circle-outline'} color={color} size={23}/>}}/>
+    <Tabs.Screen name="admin-attendance" options={{title:'Attendance',href:isAdmin?undefined:null,tabBarLabel:({color})=><Text allowFontScaling={false} numberOfLines={1} style={{color,fontSize:9,fontWeight:'700',marginTop:2,letterSpacing:-.2}}>Attendance</Text>,tabBarIcon:({color,focused})=><Ionicons name={focused?'checkmark-done-circle':'checkmark-done-circle-outline'} color={color} size={23}/>}}/>
+    <Tabs.Screen name="admin-reports" options={{title:'Reports',href:null}}/>
     <Tabs.Screen name="profile" options={{title:'Profile',tabBarIcon:({color,focused})=><Ionicons name={focused?'person':'person-outline'} color={color} size={23}/>}}/>
   </Tabs>;
 }

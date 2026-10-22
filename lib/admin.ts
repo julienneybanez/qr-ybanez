@@ -1,6 +1,7 @@
-import { supabase } from './supabase';
-import type { CloudEvent, EventStatus } from './events';
+import { clearAttendanceCaches, type AttendanceStatus } from './attendance';
+import { clearEventCaches, type CloudEvent, type EventStatus } from './events';
 import type { Role } from './profiles';
+import { supabase } from './supabase';
 
 export type AdminDashboardStats = {
   totalUsers: number;
@@ -11,6 +12,9 @@ export type AdminDashboardStats = {
   openEvents: number;
   closedEvents: number;
   attendanceRecords: number;
+  presentAttendance: number;
+  lateAttendance: number;
+  excusedAttendance: number;
 };
 
 export type AdminUser = {
@@ -32,6 +36,7 @@ export type AdminEventRecord = CloudEvent & {
 export type AdminAttendanceRecord = {
   id: string;
   scannedAt: string;
+  status: AttendanceStatus;
   studentProfileId: string;
   studentName: string | null;
   studentEmail: string | null;
@@ -50,7 +55,7 @@ export async function getAdminDashboardStats(): Promise<AdminResult<AdminDashboa
   const [profilesResult, eventsResult, attendanceResult] = await Promise.all([
     supabase.from('profiles').select('role'),
     supabase.from('events').select('status'),
-    supabase.from('attendance').select('id'),
+    supabase.from('attendance').select('id, status'),
   ]);
 
   const error =
@@ -61,6 +66,7 @@ export async function getAdminDashboardStats(): Promise<AdminResult<AdminDashboa
 
   const profiles = (profilesResult.data ?? []) as { role: Role }[];
   const events = (eventsResult.data ?? []) as { status: EventStatus }[];
+  const attendance = (attendanceResult.data ?? []) as { id: string; status: AttendanceStatus }[];
 
   return {
     data: {
@@ -71,7 +77,10 @@ export async function getAdminDashboardStats(): Promise<AdminResult<AdminDashboa
       totalEvents: events.length,
       openEvents: events.filter((event) => event.status === 'open').length,
       closedEvents: events.filter((event) => event.status === 'closed').length,
-      attendanceRecords: attendanceResult.data?.length ?? 0,
+      attendanceRecords: attendance.length,
+      presentAttendance: attendance.filter((record) => record.status === 'present').length,
+      lateAttendance: attendance.filter((record) => record.status === 'late').length,
+      excusedAttendance: attendance.filter((record) => record.status === 'excused').length,
     },
     error,
   };
@@ -85,6 +94,28 @@ export async function getAdminUsers(): Promise<AdminResult<AdminUser[]>> {
 
   return {
     data: (data ?? []) as AdminUser[],
+    error: error?.message ?? null,
+  };
+}
+
+export async function updateAdminUserProfile(
+  userId: string,
+  updates: {
+    fullName: string;
+    role: Role;
+    studentId: string | null;
+  }
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      full_name: updates.fullName,
+      role: updates.role,
+      student_id: updates.role === 'student' ? updates.studentId : null,
+    })
+    .eq('id', userId);
+
+  return {
     error: error?.message ?? null,
   };
 }
@@ -138,6 +169,7 @@ export async function getAdminEvents(): Promise<AdminResult<AdminEventRecord[]>>
 
       return {
         ...event,
+        late_after_minutes: event.late_after_minutes ?? 15,
         creatorName: creator?.name ?? null,
         creatorEmail: creator?.email ?? null,
         attendeeCount: attendanceCounts.get(event.id) ?? 0,
@@ -151,7 +183,7 @@ export async function getAdminAttendance(): Promise<AdminResult<AdminAttendanceR
   const { data, error } = await supabase
     .from('attendance')
     .select(
-      'id, student_id, event_id, scanned_at, profiles ( full_name, email, student_id ), events ( event_code, title )'
+      'id, student_id, event_id, scanned_at, status, profiles ( full_name, email, student_id ), events ( event_code, title )'
     )
     .order('scanned_at', { ascending: false });
 
@@ -166,6 +198,7 @@ export async function getAdminAttendance(): Promise<AdminResult<AdminAttendanceR
     data: (data ?? []).map((row: any) => ({
       id: row.id,
       scannedAt: row.scanned_at,
+      status: (row.status ?? 'present') as AttendanceStatus,
       studentProfileId: row.student_id,
       studentName: row.profiles?.full_name ?? null,
       studentEmail: row.profiles?.email ?? null,
@@ -178,6 +211,41 @@ export async function getAdminAttendance(): Promise<AdminResult<AdminAttendanceR
   };
 }
 
+export async function updateAdminAttendanceStatus(
+  attendanceId: string,
+  status: AttendanceStatus
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('attendance')
+    .update({ status })
+    .eq('id', attendanceId);
+
+  if (!error) {
+    clearAttendanceCaches();
+  }
+
+  return {
+    error: error?.message ?? null,
+  };
+}
+
+export async function deleteAdminAttendance(
+  attendanceId: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('attendance')
+    .delete()
+    .eq('id', attendanceId);
+
+  if (!error) {
+    clearAttendanceCaches();
+  }
+
+  return {
+    error: error?.message ?? null,
+  };
+}
+
 export async function setAdminEventStatus(
   eventId: string,
   status: EventStatus
@@ -186,6 +254,10 @@ export async function setAdminEventStatus(
     .from('events')
     .update({ status })
     .eq('id', eventId);
+
+  if (!error) {
+    clearEventCaches();
+  }
 
   return {
     error: error?.message ?? null,

@@ -289,14 +289,21 @@ create or replace function public.prevent_profile_role_change()
 returns trigger
 language plpgsql
 set search_path = public
-as $$
+as $profile_guard$
 begin
 
   if new.role is distinct from old.role
      and auth.uid() is not null then
 
-    raise exception
-      'Profile role cannot be changed by the client.';
+    if not public.is_admin() then
+      raise exception
+        'Profile role cannot be changed by the client.';
+    end if;
+
+    if old.id = auth.uid() then
+      raise exception
+        'Admins cannot change their own role.';
+    end if;
 
   end if;
 
@@ -306,7 +313,7 @@ begin
   return new;
 
 end;
-$$;
+$profile_guard$;
 
 
 drop trigger
@@ -332,14 +339,14 @@ language sql
 stable
 security definer
 set search_path = public
-as $
+as $admin$
   select exists (
     select 1
     from public.profiles
     where id = auth.uid()
       and role = 'admin'
   );
-$;
+$admin$;
 
 revoke all
 on function public.is_admin()
@@ -359,6 +366,21 @@ create policy
 on public.profiles
 for select
 using (
+  public.is_admin()
+);
+
+drop policy
+if exists "Admins can update all profiles"
+on public.profiles;
+
+create policy
+"Admins can update all profiles"
+on public.profiles
+for update
+using (
+  public.is_admin()
+)
+with check (
   public.is_admin()
 );
 
@@ -408,6 +430,13 @@ create table if not exists public.events (
   start_time timestamptz,
 
   end_time timestamptz,
+
+  late_after_minutes integer
+    not null
+    default 15
+    check (
+      late_after_minutes between 0 and 240
+    ),
 
   created_by uuid
     references auth.users (id)
@@ -473,6 +502,19 @@ with check (
     where p.id = auth.uid()
       and p.role = 'teacher'
   )
+);
+
+drop policy
+if exists "Admins can insert events"
+on public.events;
+
+create policy
+"Admins can insert events"
+on public.events
+for insert
+with check (
+  auth.uid() = created_by
+  and public.is_admin()
 );
 
 
@@ -584,6 +626,17 @@ create table if not exists public.attendance (
     not null
     default now(),
 
+  status text
+    not null
+    default 'present'
+    check (
+      status in (
+        'present',
+        'late',
+        'excused'
+      )
+    ),
+
   unique (
     student_id,
     event_id
@@ -593,6 +646,65 @@ create table if not exists public.attendance (
 
 alter table public.attendance
 enable row level security;
+
+
+-- ============================================================
+-- AUTOMATIC ATTENDANCE STATUS
+-- ============================================================
+
+create or replace function public.set_attendance_status()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $attendance$
+declare
+  event_start timestamptz;
+  late_minutes integer;
+begin
+
+  select
+    e.start_time,
+    e.late_after_minutes
+  into
+    event_start,
+    late_minutes
+  from public.events e
+  where e.id = new.event_id;
+
+
+  if event_start is not null
+     and new.scanned_at >
+       event_start
+       + make_interval(
+           mins => coalesce(late_minutes, 15)
+         ) then
+
+    new.status := 'late';
+
+  else
+
+    new.status := 'present';
+
+  end if;
+
+
+  return new;
+
+end;
+$attendance$;
+
+
+drop trigger
+if exists set_attendance_status_before_insert
+on public.attendance;
+
+
+create trigger set_attendance_status_before_insert
+before insert
+on public.attendance
+for each row
+execute procedure public.set_attendance_status();
 
 
 -- ============================================================
@@ -752,6 +864,34 @@ using (
   public.is_admin()
 );
 
+drop policy
+if exists "Admins can update all attendance"
+on public.attendance;
+
+create policy
+"Admins can update all attendance"
+on public.attendance
+for update
+using (
+  public.is_admin()
+)
+with check (
+  public.is_admin()
+);
+
+
+drop policy
+if exists "Admins can delete attendance"
+on public.attendance;
+
+create policy
+"Admins can delete attendance"
+on public.attendance
+for delete
+using (
+  public.is_admin()
+);
+
 
 -- ------------------------------------------------------------
 -- Teachers may read profile information for Students who
@@ -808,6 +948,25 @@ on public.attendance (event_id);
 create index
 if not exists attendance_scanned_at_idx
 on public.attendance (scanned_at);
+
+create index
+if not exists attendance_status_idx
+on public.attendance (status);
+
+
+-- ------------------------------------------------------------
+-- Realtime attendance monitoring
+-- ------------------------------------------------------------
+
+do $realtime$
+begin
+  alter publication supabase_realtime
+  add table public.attendance;
+exception
+  when duplicate_object then
+    null;
+end
+$realtime$;
 
 
 -- ============================================================

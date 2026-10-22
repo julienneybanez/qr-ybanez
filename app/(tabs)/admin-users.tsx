@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AdminUserEditModal from '@/components/admin/AdminUserEditModal';
 import PageHeader from '@/components/PageHeader';
 import { COLORS } from '@/constants/colors';
 import { getAdminUsers, type AdminUser } from '@/lib/admin';
@@ -16,6 +17,7 @@ export default function AdminUsersScreen() {
   const { user } = useAuth();
   const { profile } = useCachedProfile(user?.id);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,12 +55,12 @@ export default function AdminUsersScreen() {
   }, [users, query, roleFilter]);
 
   if (profile?.role !== 'admin') {
-    return <AccessDenied title="User Management" />;
+    return <AccessDenied />;
   }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <PageHeader title="Users" subtitle="View registered Student, Teacher, and Admin accounts." />
+      <PageHeader title="User Management" subtitle="Review and correct account profile information and roles." />
       <View style={styles.container}>
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={19} color={COLORS.textSecondary} />
@@ -93,20 +95,28 @@ export default function AdminUsersScreen() {
           <FlatList
             data={filteredUsers}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <UserCard item={item} />}
+            renderItem={({ item }) => <UserCard item={item} onEdit={() => setSelectedUser(item)} />}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
             refreshing={refreshing}
             onRefresh={() => void loadUsers(true)}
-            ListEmptyComponent={<EmptyState icon="people-outline" title="No users found" message="Try changing your search or role filter." />}
+            ListEmptyComponent={<EmptyState />}
           />
         )}
       </View>
+
+      <AdminUserEditModal
+        visible={!!selectedUser}
+        user={selectedUser}
+        currentUserId={user?.id}
+        onClose={() => setSelectedUser(null)}
+        onSaved={() => void loadUsers()}
+      />
     </SafeAreaView>
   );
 }
 
-function UserCard({ item }: { item: AdminUser }) {
+function UserCard({ item, onEdit }: { item: AdminUser; onEdit: () => void }) {
   const roleLabel = item.role.charAt(0).toUpperCase() + item.role.slice(1);
   const initials = (item.full_name?.trim()?.[0] || item.email[0] || 'U').toUpperCase();
 
@@ -125,15 +135,19 @@ function UserCard({ item }: { item: AdminUser }) {
             <Text style={styles.metaText}>Student ID: {item.student_id || 'Not assigned'}</Text>
           </View>
         ) : null}
+        <Pressable onPress={onEdit} style={({pressed})=>[styles.editButton,pressed&&styles.pressed]}>
+          <Ionicons name="create-outline" size={15} color={COLORS.primary}/>
+          <Text style={styles.editText}>Edit User</Text>
+        </Pressable>
       </View>
     </View>
   );
 }
 
-function AccessDenied({ title }: { title: string }) {
+function AccessDenied() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <PageHeader title={title} />
+      <PageHeader title="User Management" />
       <View style={styles.centerState}>
         <Ionicons name="shield-outline" size={34} color={COLORS.primary} />
         <Text style={styles.emptyTitle}>Admins only</Text>
@@ -152,12 +166,12 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
   );
 }
 
-function EmptyState({ icon, title, message }: { icon: keyof typeof Ionicons.glyphMap; title: string; message: string }) {
+function EmptyState() {
   return (
     <View style={styles.emptyState}>
-      <View style={styles.emptyIcon}><Ionicons name={icon} size={28} color={COLORS.primary} /></View>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.stateText}>{message}</Text>
+      <View style={styles.emptyIcon}><Ionicons name="people-outline" size={28} color={COLORS.primary} /></View>
+      <Text style={styles.emptyTitle}>No users found</Text>
+      <Text style={styles.stateText}>Try changing your search or role filter.</Text>
     </View>
   );
 }
@@ -184,6 +198,9 @@ const styles = StyleSheet.create({
   roleBadgeText: { color: COLORS.primary, fontSize: 9, fontWeight: '800' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
   metaText: { color: COLORS.textSecondary, fontSize: 10.5, fontWeight: '600' },
+  editButton:{alignSelf:'flex-start',marginTop:10,minHeight:32,borderRadius:999,paddingHorizontal:10,backgroundColor:COLORS.primarySoft,flexDirection:'row',alignItems:'center',gap:5},
+  editText:{fontSize:10,fontWeight:'800',color:COLORS.primary},
+  pressed:{opacity:.75},
   errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.dangerSoft, borderWidth: 1, borderColor: '#FFE0E5', borderRadius: 14, padding: 11, marginBottom: 10 },
   errorBannerText: { flex: 1, color: COLORS.danger, fontSize: 10.5, fontWeight: '600' },
   centerState: { flex: 1, minHeight: 320, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, backgroundColor: COLORS.background },

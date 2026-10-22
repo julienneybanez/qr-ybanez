@@ -14,17 +14,24 @@ import {
   supabase,
 } from './supabase';
 
+export type AttendanceStatus =
+  | 'present'
+  | 'late'
+  | 'excused';
+
 export type AttendanceRecord = {
   id: string;
   eventId: string;
   eventTitle: string;
   scannedAt: string;
+  status: AttendanceStatus;
 };
 
 export type RegisterResult = {
   success: boolean;
   message: string;
   eventTitle?: string;
+  attendanceStatus?: AttendanceStatus;
 };
 
 export type TeacherEventAttendance = {
@@ -44,6 +51,7 @@ export type TeacherEventAttendance = {
       | string
       | null;
     scannedAt: string;
+    status: AttendanceStatus;
   }[];
 };
 
@@ -232,7 +240,20 @@ export async function registerAttendance(
     };
   }
 
+  const lateAfterMinutes =
+    Number.isFinite(event.late_after_minutes)
+      ? event.late_after_minutes
+      : 15;
+
+  const calculatedStatus: AttendanceStatus =
+    start !== null &&
+    Number.isFinite(start) &&
+    now > start + lateAfterMinutes * 60 * 1000
+      ? 'late'
+      : 'present';
+
   const {
+    data: attendanceRow,
     error: attendanceError,
   } = await supabase
     .from('attendance')
@@ -242,7 +263,12 @@ export async function registerAttendance(
 
       event_id:
         event.id,
-    });
+
+      status:
+        calculatedStatus,
+    })
+    .select('status')
+    .single();
 
   if (attendanceError) {
     if (
@@ -288,10 +314,16 @@ export async function registerAttendance(
     success: true,
 
     message:
-      'Attendance recorded!',
+      calculatedStatus === 'late'
+        ? 'Attendance recorded as Late.'
+        : 'Attendance recorded as Present.',
 
     eventTitle:
       event.title,
+
+    attendanceStatus:
+      (attendanceRow?.status as AttendanceStatus | undefined) ??
+      calculatedStatus,
   };
 }
 
@@ -304,7 +336,7 @@ export async function getAttendanceHistory(
     await supabase
       .from('attendance')
       .select(
-        'id, scanned_at, events ( event_code, title )'
+        'id, scanned_at, status, events ( event_code, title )'
       )
       .eq(
         'student_id',
@@ -345,6 +377,9 @@ export async function getAttendanceHistory(
 
         scannedAt:
           row.scanned_at,
+
+        status:
+          (row.status ?? 'present') as AttendanceStatus,
       })
     );
 
@@ -415,7 +450,7 @@ export async function getTeacherEventAttendance(
   } = await supabase
     .from('attendance')
     .select(
-      'student_id, scanned_at, event_id, profiles ( full_name, email, student_id )'
+      'student_id, scanned_at, status, event_id, profiles ( full_name, email, student_id )'
     )
     .in(
       'event_id',
@@ -492,6 +527,9 @@ export async function getTeacherEventAttendance(
 
                 scannedAt:
                   attendanceRow.scanned_at,
+
+                status:
+                  (attendanceRow.status ?? 'present') as AttendanceStatus,
               })
             ),
         };

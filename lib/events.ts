@@ -17,6 +17,7 @@ export type Event = {
   description: string;
   start: string;
   end: string;
+  lateAfterMinutes: number;
 };
 
 export type EventUpdate = {
@@ -25,6 +26,7 @@ export type EventUpdate = {
   description: string;
   start: string;
   end: string;
+  lateAfterMinutes: number;
 };
 
 export type CloudEvent = {
@@ -36,6 +38,7 @@ export type CloudEvent = {
   status: EventStatus;
   start_time: string | null;
   end_time: string | null;
+  late_after_minutes: number;
   created_by: string | null;
   created_at: string;
 };
@@ -73,10 +76,7 @@ function invalidateAfterMutation(
   teacherId: string
 ) {
   studentEventsCache = null;
-
-  teacherEventsCache.delete(
-    teacherId
-  );
+  teacherEventsCache.clear();
 }
 
 export function getEventDisplayStatus(
@@ -171,6 +171,9 @@ export async function createEvent(
           event.end ||
           null,
 
+        late_after_minutes:
+          event.lateAfterMinutes,
+
         status: 'open',
 
         created_by:
@@ -238,12 +241,11 @@ export async function updateEvent(
         end_time:
           updates.end ||
           null,
+
+        late_after_minutes:
+          updates.lateAfterMinutes,
       })
       .eq('id', eventId)
-      .eq(
-        'created_by',
-        user.id
-      )
       .select('*')
       .single();
 
@@ -286,11 +288,7 @@ export async function closeEvent(
       .update({
         status: 'closed',
       })
-      .eq('id', eventId)
-      .eq(
-        'created_by',
-        user.id
-      );
+      .eq('id', eventId);
 
   if (!error) {
     invalidateAfterMutation(

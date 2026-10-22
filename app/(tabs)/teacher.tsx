@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import EventDetailsModal from '@/components/events/EventDetailsModal';
 import EventQRCodeCard from '@/components/teacher/EventQRCodeCard';
 import TeacherEventForm, {
   type EditTarget,
@@ -97,6 +98,9 @@ export default function TeacherScreen() {
       )
   );
 
+  const [lateAfterMinutes, setLateAfterMinutes] =
+    useState(15);
+
   const [editTarget, setEditTarget] =
     useState<EditTarget | null>(null);
 
@@ -106,6 +110,9 @@ export default function TeacherScreen() {
   ] = useState<'date' | 'time'>('date');
 
   const [qrEvent, setQrEvent] =
+    useState<CloudEvent | null>(null);
+
+  const [viewEvent, setViewEvent] =
     useState<CloudEvent | null>(null);
 
   const [message, setMessage] =
@@ -189,6 +196,7 @@ export default function TeacherScreen() {
       )
     );
 
+    setLateAfterMinutes(15);
     setEditTarget(null);
     setEditingPart('date');
   };
@@ -347,6 +355,8 @@ export default function TeacherScreen() {
               startDate.toISOString(),
             end:
               endDate.toISOString(),
+
+            lateAfterMinutes,
           }
         );
 
@@ -382,6 +392,8 @@ export default function TeacherScreen() {
           startDate.toISOString(),
         end:
           endDate.toISOString(),
+
+        lateAfterMinutes,
       });
 
     setSaving(false);
@@ -435,6 +447,10 @@ export default function TeacherScreen() {
     setVenue(event.venue ?? '');
     setDescription(
       event.description ?? ''
+    );
+
+    setLateAfterMinutes(
+      event.late_after_minutes ?? 15
     );
 
     setStartDate(
@@ -561,6 +577,7 @@ export default function TeacherScreen() {
           description={description}
           startDate={startDate}
           endDate={endDate}
+          lateAfterMinutes={lateAfterMinutes}
           editTarget={editTarget}
           editingPart={editingPart}
           isAndroid={isAndroid}
@@ -571,6 +588,7 @@ export default function TeacherScreen() {
           onEventIdChange={setEventId}
           onVenueChange={setVenue}
           onDescriptionChange={setDescription}
+          onLateAfterMinutesChange={setLateAfterMinutes}
           onOpenPicker={openPicker}
           onPickerChange={onPickerChange}
           onQuickEnd={handleQuickEnd}
@@ -589,11 +607,18 @@ export default function TeacherScreen() {
         <TeacherEventList
           events={events}
           loading={eventsLoading}
+          onView={setViewEvent}
           onEdit={handleEdit}
           onShowQr={handleShowQr}
           onClose={handleCloseEvent}
         />
       </ScrollView>
+
+      <EventDetailsModal
+        visible={!!viewEvent}
+        event={viewEvent}
+        onClose={() => setViewEvent(null)}
+      />
     </SafeAreaView>
   );
 }

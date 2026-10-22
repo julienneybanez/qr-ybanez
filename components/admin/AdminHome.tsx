@@ -17,6 +17,9 @@ const EMPTY_STATS: AdminDashboardStats = {
   openEvents: 0,
   closedEvents: 0,
   attendanceRecords: 0,
+  presentAttendance: 0,
+  lateAttendance: 0,
+  excusedAttendance: 0,
 };
 
 export default function AdminHome() {
@@ -102,9 +105,10 @@ export default function AdminHome() {
 
           <Text style={styles.sectionTitle}>Management</Text>
           <View style={styles.quickGrid}>
-            <QuickAction title="Users" subtitle="View registered accounts" icon="people-outline" onPress={() => router.push('/admin-users')} />
-            <QuickAction title="Events" subtitle="Oversee school events" icon="calendar-outline" onPress={() => router.push('/admin-events')} />
-            <QuickAction title="Attendance" subtitle="Review scan records" icon="checkmark-done-outline" onPress={() => router.push('/admin-attendance')} />
+            <QuickAction title="Users" subtitle="Manage registered accounts" icon="people-outline" onPress={() => router.push('/admin-users')} />
+            <QuickAction title="Events" subtitle="Create and manage events" icon="calendar-outline" onPress={() => router.push('/admin-events')} />
+            <QuickAction title="Attendance" subtitle="Monitor and correct records" icon="checkmark-done-outline" onPress={() => router.push('/admin-attendance')} />
+            <QuickAction title="Reports" subtitle="View system summaries" icon="bar-chart-outline" onPress={() => router.push('/admin-reports')} />
           </View>
         </View>
       </ScrollView>
@@ -161,7 +165,7 @@ const styles = StyleSheet.create({
   eyebrow: { marginTop: 27, color: '#97A5C8', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
   heroTitle: { marginTop: 7, color: '#FFFFFF', fontSize: 30, fontWeight: '800', letterSpacing: -0.8 },
   heroSubtitle: { marginTop: 8, maxWidth: 310, color: '#C1CAE1', fontSize: 13, lineHeight: 19 },
-  body: { paddingHorizontal: 16, marginTop: -18 },
+  body: { paddingHorizontal: 16, marginTop: 0, paddingTop: 16 },
   sectionTop: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: 10 },
   errorCard: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: COLORS.dangerSoft, borderRadius: 16, padding: 13, marginBottom: 12, borderWidth: 1, borderColor: '#FFE0E5' },
