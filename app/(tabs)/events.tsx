@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EventsState from '@/components/events/EventsState';
+import StudentCorrectionModal from '@/components/attendance/StudentCorrectionModal';
 import StudentEventCard from '@/components/events/StudentEventCard';
 import PageHeader from '@/components/PageHeader';
 import { COLORS } from '@/constants/colors';
@@ -27,6 +28,7 @@ export default function EventsScreen(){
   const [loading,setLoading]=useState(()=>cachedEvents===null);
   const [query,setQuery]=useState('');
   const [filter,setFilter]=useState<Filter>('all');
+  const [reportEvent,setReportEvent]=useState<CloudEvent|null>(null);
 
   const refreshEvents=useCallback(async()=>{
     if(profile?.role!=='student')return;
@@ -85,8 +87,9 @@ export default function EventsScreen(){
 
       {visibleEvents.length===0?
         <EventsState icon="calendar-outline" title="No events found" message="Try another search or event filter."/>:
-        <FlatList data={visibleEvents} keyExtractor={item=>item.id} renderItem={({item})=><StudentEventCard event={item}/>} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}/>}
+        <FlatList data={visibleEvents} keyExtractor={item=>item.id} renderItem={({item})=><StudentEventCard event={item} onReportMissing={()=>setReportEvent(item)}/>} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}/>}
     </View>
+    <StudentCorrectionModal visible={!!reportEvent} studentId={user?.id??''} initialEventId={reportEvent?.id} onClose={()=>setReportEvent(null)}/>
   </SafeAreaView>;
 }
 

@@ -15,6 +15,7 @@ export function buildAttendanceCsv(group: EventAttendanceGroup) {
     'Event',
     'Event Code',
     'Status',
+    'Recorded Via',
     'Check-in Date',
     'Check-in Time',
   ];
@@ -29,6 +30,7 @@ export function buildAttendanceCsv(group: EventAttendanceGroup) {
       group.title,
       group.eventCode,
       attendee.status.charAt(0).toUpperCase() + attendee.status.slice(1),
+      attendee.recordedVia,
       date.toLocaleDateString(),
       date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
     ];

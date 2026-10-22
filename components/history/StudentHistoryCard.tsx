@@ -1,10 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { StyleSheet,Text,View } from 'react-native';
+import { Pressable,StyleSheet,Text,View } from 'react-native';
 import { COLORS } from '@/constants/colors';
 import type { AttendanceRecord,AttendanceStatus } from '@/lib/attendance';
 import { formatHistoryDate } from './historyUtils';
 
-type Props={item:AttendanceRecord};
+type Props={item:AttendanceRecord;onReport?:()=>void};
 
 function statusStyle(status:AttendanceStatus){
   if(status==='late')return{label:'Late',background:COLORS.warningSoft,color:COLORS.warning};
@@ -12,7 +12,7 @@ function statusStyle(status:AttendanceStatus){
   return{label:'Present',background:COLORS.successSoft,color:COLORS.success};
 }
 
-export default function StudentHistoryCard({item}:Props){
+export default function StudentHistoryCard({item,onReport}:Props){
   const status=statusStyle(item.status);
   return <View style={styles.card}>
     <View style={[styles.eventIcon,{backgroundColor:status.background}]}><Ionicons name={item.status==='late'?'time-outline':item.status==='excused'?'information-circle-outline':'checkmark-circle-outline'} size={22} color={status.color}/></View>
@@ -22,6 +22,7 @@ export default function StudentHistoryCard({item}:Props){
         <View style={[styles.badge,{backgroundColor:status.background}]}><Text style={[styles.badgeText,{color:status.color}]}>{status.label}</Text></View>
       </View>
       <View style={styles.meta}><Ionicons name="time-outline" size={15} color={COLORS.textSecondary}/><Text style={styles.metaText}>{formatHistoryDate(item.scannedAt)}</Text></View>
+      {onReport?<Pressable onPress={onReport} style={styles.report}><Ionicons name="flag-outline" size={13} color={COLORS.primary}/><Text style={styles.reportText}>Report an Issue</Text></Pressable>:null}
     </View>
   </View>;
 }
@@ -38,4 +39,6 @@ const styles=StyleSheet.create({
   badgeText:{fontSize:9.5,fontWeight:'800'},
   meta:{flexDirection:'row',alignItems:'center',marginTop:9,gap:6},
   metaText:{fontSize:11,color:COLORS.textSecondary},
+  report:{alignSelf:'flex-start',flexDirection:'row',alignItems:'center',gap:5,marginTop:8,paddingVertical:5},
+  reportText:{fontSize:10,fontWeight:'800',color:COLORS.primary},
 });

@@ -42,6 +42,7 @@ export type AdminAttendanceRecord = {
   id: string;
   scannedAt: string;
   status: AttendanceStatus;
+  recordedVia: 'qr'|'manual'|'correction';
   studentProfileId: string;
   studentName: string | null;
   studentEmail: string | null;
@@ -176,7 +177,7 @@ export async function getAdminAttendance(): Promise<AdminResult<AdminAttendanceR
   const { data, error } = await supabase
     .from('attendance')
     .select(
-      'id, student_id, event_id, scanned_at, status, profiles ( full_name, email, student_id ), events ( event_code, title )'
+      'id, student_id, event_id, scanned_at, status, recorded_via, profiles ( full_name, email, student_id ), events ( event_code, title )'
     )
     .order('scanned_at', { ascending: false });
 
@@ -187,6 +188,7 @@ export async function getAdminAttendance(): Promise<AdminResult<AdminAttendanceR
       id: row.id,
       scannedAt: row.scanned_at,
       status: (row.status ?? 'present') as AttendanceStatus,
+      recordedVia: (row.recorded_via??'qr') as 'qr'|'manual'|'correction',
       studentProfileId: row.student_id,
       studentName: row.profiles?.full_name ?? null,
       studentEmail: row.profiles?.email ?? null,
@@ -219,6 +221,7 @@ export async function getAdminEventAttendance(): Promise<AdminResult<AdminEventA
         studentEmail: record.studentEmail,
         scannedAt: record.scannedAt,
         status: record.status,
+        recordedVia: record.recordedVia,
       }));
 
       const timestamps = attendees
@@ -254,25 +257,26 @@ export async function getAdminEventAttendance(): Promise<AdminResult<AdminEventA
 
 export async function updateAdminAttendanceStatus(
   attendanceId: string,
-  status: AttendanceStatus
+  status: AttendanceStatus,
+  reason: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase
-    .from('attendance')
-    .update({ status })
-    .eq('id', attendanceId);
-
+  const { error } = await supabase.rpc('correct_attendance_record', {
+    p_attendance_id: attendanceId,
+    p_status: status,
+    p_reason: reason.trim(),
+  });
   if (!error) clearAttendanceCaches();
   return { error: error?.message ?? null };
 }
 
 export async function deleteAdminAttendance(
-  attendanceId: string
+  attendanceId: string,
+  reason: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase
-    .from('attendance')
-    .delete()
-    .eq('id', attendanceId);
-
+  const { error } = await supabase.rpc('remove_attendance_record', {
+    p_attendance_id: attendanceId,
+    p_reason: reason.trim(),
+  });
   if (!error) clearAttendanceCaches();
   return { error: error?.message ?? null };
 }

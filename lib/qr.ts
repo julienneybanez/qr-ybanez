@@ -1,70 +1,39 @@
-export type QRPayload = {
-  v: 1;
-  event: string;
-};
+export type QRPayload = { v: 2; event: string; token: string };
 
-export function buildQRPayload(event: {
-  eventId: string;
-}): string {
-  const payload: QRPayload = {
-    v: 1,
-    event: event.eventId,
-  };
-
-  return JSON.stringify(payload);
+export function buildQRPayload(eventCode: string, token: string): string {
+  return JSON.stringify({ v: 2, event: eventCode, token });
 }
 
 export type ParseQRResult =
   | { ok: true; payload: QRPayload }
   | { ok: false; message: string };
 
-export function parseQRPayload(
-  raw: string
-): ParseQRResult {
-  let parsed: unknown;
+export function parseQRPayload(raw: string): ParseQRResult {
+  let parsed: any;
 
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return {
-      ok: false,
-      message: 'Invalid QR code.',
-    };
+    return { ok: false, message: 'Invalid QR code.' };
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    return { ok: false, message: 'Not an attendance QR code.' };
+  }
+
+  if (parsed.v !== 2) {
+    return { ok: false, message: 'This is an old QR code. Scan the current rotating QR.' };
   }
 
   if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    !('v' in parsed) ||
-    !('event' in parsed)
+    typeof parsed.event !== 'string' || !parsed.event.trim() ||
+    typeof parsed.token !== 'string' || !/^[a-f0-9]{64}$/.test(parsed.token)
   ) {
-    return {
-      ok: false,
-      message: 'Not an attendance QR code.',
-    };
-  }
-
-  const candidate = parsed as {
-    v?: unknown;
-    event?: unknown;
-  };
-
-  if (
-    candidate.v !== 1 ||
-    typeof candidate.event !== 'string' ||
-    !candidate.event.trim()
-  ) {
-    return {
-      ok: false,
-      message: 'Not an attendance QR code.',
-    };
+    return { ok: false, message: 'Invalid or incomplete attendance QR.' };
   }
 
   return {
     ok: true,
-    payload: {
-      v: 1,
-      event: candidate.event.trim(),
-    },
+    payload: { v: 2, event: parsed.event.trim(), token: parsed.token },
   };
 }

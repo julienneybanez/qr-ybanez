@@ -1,11 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { StyleSheet,Text,View } from 'react-native';
+import { Pressable,StyleSheet,Text,View } from 'react-native';
 import { COLORS } from '@/constants/colors';
 import { getEventDisplayStatus,type CloudEvent } from '@/lib/events';
 
-type Props={event:CloudEvent};
+type Props={event:CloudEvent;onReportMissing?:()=>void};
 
-export default function StudentEventCard({event}:Props){
+export default function StudentEventCard({event,onReportMissing}:Props){
   const status=getEventDisplayStatus(event);
   const badgeStyle=status==='Ongoing'?styles.ongoingBadge:status==='Upcoming'?styles.upcomingBadge:styles.endedBadge;
   const badgeTextColor=status==='Ongoing'?COLORS.success:status==='Upcoming'?COLORS.primary:COLORS.textSecondary;
@@ -31,6 +31,7 @@ export default function StudentEventCard({event}:Props){
           status==='Upcoming'?
           <View style={styles.upcomingNotice}><Ionicons name="time-outline" size={17} color={COLORS.warning}/><View style={styles.noticeCopy}><Text style={styles.upcomingTitle}>{relativeStart}</Text><Text style={styles.upcomingNoticeText}>Attendance opens when the event starts.</Text></View></View>:
           <View style={styles.endedNotice}><Ionicons name="checkmark-circle-outline" size={17} color={COLORS.textSecondary}/><Text style={styles.endedText}>This event has ended.</Text></View>}
+        {onReportMissing&&status!=='Upcoming'?<Pressable onPress={onReportMissing} style={styles.report}><Ionicons name="flag-outline" size={14} color={COLORS.primary}/><Text style={styles.reportText}>Report Missing Attendance</Text></Pressable>:null}
       </View>
     </View>
   </View>;
@@ -58,6 +59,8 @@ function formatRelativeStart(startIso:string|null){
 }
 
 const styles=StyleSheet.create({
+  report:{flexDirection:'row',alignItems:'center',gap:5,alignSelf:'flex-start',marginTop:10,paddingVertical:5},
+  reportText:{fontSize:10.5,fontWeight:'800',color:COLORS.primary},
   card:{backgroundColor:COLORS.card,borderRadius:20,borderWidth:1,borderColor:COLORS.border,padding:14,marginBottom:11,shadowColor:COLORS.shadow,shadowOpacity:.03,shadowRadius:10,elevation:1},
   row:{flexDirection:'row',gap:11},
   eventIcon:{width:42,height:42,borderRadius:14,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center'},

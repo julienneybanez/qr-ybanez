@@ -103,6 +103,7 @@ export default function AdminAttendanceScreen() {
       id: attendee.attendanceId,
       scannedAt: attendee.scannedAt,
       status: attendee.status,
+      recordedVia: attendee.recordedVia,
       studentProfileId: attendee.profileId,
       studentName: attendee.studentName,
       studentEmail: attendee.studentEmail,
@@ -186,6 +187,7 @@ export default function AdminAttendanceScreen() {
         onExport={() => {
           if (selectedGroup) void exportGroup(selectedGroup);
         }}
+        onUpdated={()=>void loadAttendance()}
       />
 
       <AdminAttendanceEditModal

@@ -1,5 +1,4 @@
-import { getEventByCode, getEventDisplayStatus } from './events';
-import { getProfile } from './profiles';
+import { getEventDisplayStatus } from './events';
 import { parseQRPayload } from './qr';
 import { supabase } from './supabase';
 
@@ -8,6 +7,7 @@ export type AttendanceStatus = 'present' | 'late' | 'excused';
 export type AttendanceRecord = {
   id: string;
   eventId: string;
+  eventUuid: string;
   eventTitle: string;
   scannedAt: string;
   status: AttendanceStatus;
@@ -32,6 +32,7 @@ export type EventAttendee = {
   studentEmail: string | null;
   scannedAt: string;
   status: AttendanceStatus;
+  recordedVia: 'qr' | 'manual' | 'correction';
 };
 
 export type EventAttendanceGroup = {
@@ -78,132 +79,38 @@ export function clearAttendanceCaches() {
   teacherAttendanceCache.clear();
 }
 
-export async function registerAttendance(
-  rawPayload: string,
-  studentId: string
-): Promise<RegisterResult> {
+export async function registerAttendance(rawPayload: string, studentId: string): Promise<RegisterResult> {
   const parsed = parseQRPayload(rawPayload);
-
-  if (!parsed.ok) {
-    return { success: false, message: parsed.message };
-  }
+  if (!parsed.ok) return { success: false, message: parsed.message };
 
   const { data: { user } } = await supabase.auth.getUser();
-
   if (!user || user.id !== studentId) {
     return { success: false, message: 'Please sign in again before scanning.' };
   }
 
-  const profile = await getProfile(user.id);
+  // Database checks the temporary token and all attendance permissions.
+  const { data, error } = await supabase.rpc('verify_qr_check_in', {
+    p_event_code: parsed.payload.event,
+    p_token: parsed.payload.token,
+  });
+  if (error) return { success: false, message: error.message ?? 'QR verification failed.' };
 
-  if (!profile || profile.role !== 'student') {
-    return { success: false, message: 'Only student accounts can record attendance.' };
-  }
-
-  if (!profile.student_id) {
-    return {
-      success: false,
-      message: 'Your account does not have a Student ID. Please contact an administrator.',
-    };
-  }
-
-  const event = await getEventByCode(parsed.payload.event);
-
-  if (!event) {
-    return { success: false, message: 'This QR code does not match a valid event.' };
-  }
-
-  if (event.status === 'closed') {
-    return {
-      success: false,
-      message: 'This event is closed.',
-      eventTitle: event.title,
-      eventCode: event.event_code,
-    };
-  }
-
-  const now = Date.now();
-  const start = event.start_time ? new Date(event.start_time).getTime() : null;
-  const end = event.end_time ? new Date(event.end_time).getTime() : null;
-
-  if (start !== null && Number.isFinite(start) && now < start) {
-    return {
-      success: false,
-      message: 'Event has not started yet.',
-      eventTitle: event.title,
-      eventCode: event.event_code,
-    };
-  }
-
-  if (end !== null && Number.isFinite(end) && now > end) {
-    return {
-      success: false,
-      message: 'Event has already ended.',
-      eventTitle: event.title,
-      eventCode: event.event_code,
-    };
-  }
-
-  const lateAfterMinutes = Number.isFinite(event.late_after_minutes)
-    ? event.late_after_minutes
-    : 15;
-
-  const calculatedStatus: AttendanceStatus =
-    start !== null &&
-    Number.isFinite(start) &&
-    now > start + lateAfterMinutes * 60 * 1000
-      ? 'late'
-      : 'present';
-
-  const { data: attendanceRow, error: attendanceError } = await supabase
-    .from('attendance')
-    .insert({
-      student_id: studentId,
-      event_id: event.id,
-      status: calculatedStatus,
-    })
-    .select('status, scanned_at')
-    .single();
-
-  if (attendanceError) {
-    if (attendanceError.code === '23505') {
-      return {
-        success: false,
-        message: 'Already registered for this event.',
-        eventTitle: event.title,
-        eventCode: event.event_code,
-      };
-    }
-
-    return {
-      success: false,
-      message:
-        attendanceError.code === '42501'
-          ? 'Attendance is not allowed for this event.'
-          : attendanceError.message,
-      eventTitle: event.title,
-      eventCode: event.event_code,
-    };
-  }
-
+  const result = data as {
+    event_title: string; event_code: string; status: AttendanceStatus;
+    scanned_at: string; late_after_minutes: number; school_student_id: string | null;
+  };
   studentHistoryCache.delete(studentId);
-  if (event.created_by) teacherAttendanceCache.delete(event.created_by);
-
-  const status =
-    (attendanceRow?.status as AttendanceStatus | undefined) ?? calculatedStatus;
+  teacherAttendanceCache.clear();
 
   return {
     success: true,
-    message:
-      status === 'late'
-        ? 'Attendance recorded as Late.'
-        : 'Attendance recorded as Present.',
-    eventTitle: event.title,
-    eventCode: event.event_code,
-    attendanceStatus: status,
-    recordedAt: attendanceRow?.scanned_at ?? new Date().toISOString(),
-    lateAfterMinutes,
-    studentNumber: profile.student_id,
+    message: result.status === 'late' ? 'Attendance recorded as Late.' : 'Attendance recorded as Present.',
+    eventTitle: result.event_title,
+    eventCode: result.event_code,
+    attendanceStatus: result.status,
+    recordedAt: result.scanned_at,
+    lateAfterMinutes: result.late_after_minutes,
+    studentNumber: result.school_student_id,
   };
 }
 
@@ -212,7 +119,7 @@ export async function getAttendanceHistory(
 ): Promise<AttendanceRecord[]> {
   const { data, error } = await supabase
     .from('attendance')
-    .select('id, scanned_at, status, events ( event_code, title )')
+    .select('id, scanned_at, status, events ( id, event_code, title )')
     .eq('student_id', studentId)
     .order('scanned_at', { ascending: false });
 
@@ -223,6 +130,7 @@ export async function getAttendanceHistory(
   const rows = data.map((row: any) => ({
     id: row.id,
     eventId: row.events?.event_code ?? '',
+    eventUuid: row.events?.id ?? '',
     eventTitle: row.events?.title ?? '',
     scannedAt: row.scanned_at,
     status: (row.status ?? 'present') as AttendanceStatus,
@@ -254,7 +162,7 @@ export async function getTeacherEventAttendance(
 
   const { data: attendance, error: attendanceError } = await supabase
     .from('attendance')
-    .select('id, student_id, scanned_at, status, event_id, profiles ( full_name, email, student_id )')
+    .select('id, student_id, scanned_at, status, recorded_via, event_id, profiles ( full_name, email, student_id )')
     .in('event_id', eventIds)
     .order('scanned_at', { ascending: false });
 
@@ -272,6 +180,7 @@ export async function getTeacherEventAttendance(
       studentEmail: row.profiles?.email ?? null,
       scannedAt: row.scanned_at,
       status: (row.status ?? 'present') as AttendanceStatus,
+      recordedVia: (row.recorded_via ?? 'qr') as 'qr'|'manual'|'correction',
     }));
 
     const timestamps = attendees

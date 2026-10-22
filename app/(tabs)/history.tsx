@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EventAttendanceCard from '@/components/attendance/EventAttendanceCard';
+import StudentCorrectionModal from '@/components/attendance/StudentCorrectionModal';
 import EventAttendeesModal from '@/components/attendance/EventAttendeesModal';
 import HistoryEmptyState from '@/components/history/HistoryEmptyState';
 import StudentHistoryCard from '@/components/history/StudentHistoryCard';
@@ -36,6 +37,9 @@ export default function HistoryScreen() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [eventFilter, setEventFilter] = useState<EventFilter>('all');
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestView,setRequestView]=useState<'new'|'mine'>('new');
+  const [requestTarget, setRequestTarget] = useState<AttendanceRecord|null>(null);
 
   const refresh = useCallback(async () => {
     if (!user || !profile) return;
@@ -186,7 +190,12 @@ export default function HistoryScreen() {
               />
             )}
           </>
-        ) : studentRecords.length === 0 ? (
+        ) : (<>
+          <View style={styles.studentActions}>
+            <Pressable onPress={() => {setRequestTarget(null);setRequestView('new');setRequestOpen(true);}} style={styles.requestAction}><Ionicons name="flag-outline" size={15} color={COLORS.primary}/><Text style={styles.requestText}>Missing Attendance</Text></Pressable>
+            <Pressable onPress={() => {setRequestTarget(null);setRequestView('mine');setRequestOpen(true);}} style={styles.requestAction}><Ionicons name="document-text-outline" size={15} color={COLORS.primary}/><Text style={styles.requestText}>My Requests</Text></Pressable>
+          </View>
+          {studentRecords.length === 0 ? (
           <HistoryEmptyState
             icon="time-outline"
             title="No attendance yet"
@@ -198,10 +207,12 @@ export default function HistoryScreen() {
             keyExtractor={(item) => String(item.id)}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.list}
-            renderItem={({ item }) => <StudentHistoryCard item={item} />}
+            renderItem={({ item }) => <StudentHistoryCard item={item} onReport={() => {setRequestTarget(item);setRequestView('new');setRequestOpen(true);}} />}
           />
-        )}
+        )}</>)}
       </View>
+
+      <StudentCorrectionModal visible={requestOpen} studentId={user?.id??''} initialEventId={requestTarget?.eventUuid} initialStatus={requestTarget?.status} initialView={requestView} onClose={()=>setRequestOpen(false)} onSubmitted={()=>void refresh()}/>
 
       <EventAttendeesModal
         visible={!!selectedGroup}
@@ -210,6 +221,7 @@ export default function HistoryScreen() {
         onExport={() => {
           if (selectedGroup) void exportGroup(selectedGroup);
         }}
+        onUpdated={()=>void refresh()}
       />
     </SafeAreaView>
   );
@@ -219,6 +231,9 @@ const styles = StyleSheet.create({
   safeArea:{flex:1,backgroundColor:COLORS.navy},
   container:{flex:1,backgroundColor:COLORS.background,paddingHorizontal:16,paddingTop:14},
   list:{paddingBottom:104},
+  studentActions:{flexDirection:'row',gap:8,marginBottom:12},
+  requestAction:{flex:1,minHeight:42,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:6,borderRadius:13,backgroundColor:COLORS.primarySoft},
+  requestText:{fontSize:10.5,fontWeight:'800',color:COLORS.primary},
   searchBox:{minHeight:46,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12,borderRadius:15,backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border},
   searchInput:{flex:1,fontSize:12.5,color:COLORS.textPrimary},
   filters:{flexDirection:'row',gap:5,marginTop:9,marginBottom:11},
