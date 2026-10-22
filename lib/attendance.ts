@@ -140,9 +140,15 @@ export async function getAttendanceHistory(
   return rows;
 }
 
-export async function getTeacherEventAttendance(
+export type TeacherAttendanceLoadResult = {
+  data: TeacherEventAttendance[];
+  error: string | null;
+};
+
+export async function getTeacherEventAttendanceResult(
   teacherId: string
-): Promise<TeacherEventAttendance[]> {
+): Promise<TeacherAttendanceLoadResult> {
+  // Fetch events independently so an attendee/profile error never hides events.
   const { data: events, error: eventError } = await supabase
     .from('events')
     .select('id, event_code, title, venue, status, start_time, end_time, late_after_minutes, created_by, created_at')
@@ -150,39 +156,75 @@ export async function getTeacherEventAttendance(
     .order('created_at', { ascending: false });
 
   if (eventError || !events) {
-    return teacherAttendanceCache.get(teacherId) ?? [];
+    return {
+      data: teacherAttendanceCache.get(teacherId) ?? [],
+      error: eventError?.message ?? 'Could not load your events.',
+    };
   }
 
-  const eventIds = events.map((event: any) => event.id);
-
-  if (eventIds.length === 0) {
+  if (events.length === 0) {
     teacherAttendanceCache.set(teacherId, []);
-    return [];
+    return { data: [], error: null };
   }
 
+  const eventIds = events.map((event: any) => event.id as string);
+
+  // Do not embed profiles: attendance.recorded_by and student_id refer to
+  // different identities (a manual check-in is recorded by the Teacher/Admin).
+  // Look up the attendee using attendance.student_id explicitly.
   const { data: attendance, error: attendanceError } = await supabase
     .from('attendance')
-    .select('id, student_id, scanned_at, status, recorded_via, event_id, profiles ( full_name, email, student_id )')
+    .select('id, student_id, scanned_at, status, recorded_via, event_id')
     .in('event_id', eventIds)
     .order('scanned_at', { ascending: false });
 
-  if (attendanceError || !attendance) {
-    return teacherAttendanceCache.get(teacherId) ?? [];
+  const attendanceRows = (attendance ?? []) as Array<{
+    id: string;
+    student_id: string;
+    scanned_at: string;
+    status: AttendanceStatus | null;
+    recorded_via: 'qr' | 'manual' | 'correction' | null;
+    event_id: string;
+  }>;
+
+  const studentIds = [...new Set(attendanceRows.map((row) => row.student_id))];
+  const profileResult = studentIds.length
+    ? await supabase
+        .from('profiles')
+        .select('id, full_name, email, student_id')
+        .in('id', studentIds)
+    : null;
+
+  const profilesById = new Map<string, {
+    full_name: string | null;
+    email: string | null;
+    student_id: string | null;
+  }>();
+
+  for (const profile of profileResult?.data ?? []) {
+    profilesById.set(profile.id, profile);
+  }
+
+  const groupedAttendance = new Map<string, EventAttendee[]>();
+  for (const row of attendanceRows) {
+    const student = profilesById.get(row.student_id);
+    const attendee: EventAttendee = {
+      attendanceId: row.id,
+      profileId: row.student_id,
+      studentId: student?.student_id ?? null,
+      studentName: student?.full_name ?? null,
+      studentEmail: student?.email ?? null,
+      scannedAt: row.scanned_at,
+      status: row.status ?? 'present',
+      recordedVia: row.recorded_via ?? 'qr',
+    };
+    const list = groupedAttendance.get(row.event_id) ?? [];
+    list.push(attendee);
+    groupedAttendance.set(row.event_id, list);
   }
 
   const result: TeacherEventAttendance[] = events.map((event: any) => {
-    const rows = attendance.filter((row: any) => row.event_id === event.id);
-    const attendees: EventAttendee[] = rows.map((row: any) => ({
-      attendanceId: row.id,
-      profileId: row.student_id,
-      studentId: row.profiles?.student_id ?? null,
-      studentName: row.profiles?.full_name ?? null,
-      studentEmail: row.profiles?.email ?? null,
-      scannedAt: row.scanned_at,
-      status: (row.status ?? 'present') as AttendanceStatus,
-      recordedVia: (row.recorded_via ?? 'qr') as 'qr'|'manual'|'correction',
-    }));
-
+    const attendees = groupedAttendance.get(event.id) ?? [];
     const timestamps = attendees
       .map((attendee) => new Date(attendee.scannedAt).getTime())
       .filter(Number.isFinite);
@@ -223,8 +265,22 @@ export async function getTeacherEventAttendance(
     };
   });
 
-  teacherAttendanceCache.set(teacherId, result);
-  return result;
+  const error = attendanceError
+    ? 'Events loaded, but attendance could not be loaded: ' + attendanceError.message
+    : profileResult?.error
+      ? 'Attendance loaded, but some student details could not be loaded: ' + profileResult.error.message
+      : null;
+
+  if (!error) teacherAttendanceCache.set(teacherId, result);
+  return { data: result, error };
+}
+
+// Preserve existing callers, including Teacher Home and event summaries.
+export async function getTeacherEventAttendance(
+  teacherId: string
+): Promise<TeacherEventAttendance[]> {
+  const result = await getTeacherEventAttendanceResult(teacherId);
+  return result.data;
 }
 
 export async function getTeacherEventSummary(

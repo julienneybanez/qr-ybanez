@@ -12,7 +12,7 @@ import PageHeader from '@/components/PageHeader';
 import { COLORS } from '@/constants/colors';
 import {
   getAttendanceHistory,
-  getTeacherEventAttendance,
+  getTeacherEventAttendanceResult,
   peekAttendanceHistory,
   peekTeacherEventAttendance,
   type AttendanceRecord,
@@ -33,6 +33,7 @@ export default function HistoryScreen() {
   const initialTeacherEvents = user ? peekTeacherEventAttendance(user.id) : null;
   const [studentRecords, setStudentRecords] = useState<AttendanceRecord[]>(() => initialStudentRecords ?? []);
   const [teacherEvents, setTeacherEvents] = useState<TeacherEventAttendance[]>(() => initialTeacherEvents ?? []);
+  const [teacherError, setTeacherError] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => initialStudentRecords === null && initialTeacherEvents === null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -53,13 +54,15 @@ export default function HistoryScreen() {
         setLoading(true);
       }
 
-      const events = await getTeacherEventAttendance(user.id);
-      setTeacherEvents(events);
+      const result = await getTeacherEventAttendanceResult(user.id);
+      setTeacherEvents(result.data);
+      setTeacherError(result.error);
       setStudentRecords([]);
       setLoading(false);
       return;
     }
 
+    setTeacherError(null);
     const cached = peekAttendanceHistory(user.id);
     if (cached) {
       setStudentRecords(cached);
@@ -165,11 +168,28 @@ export default function HistoryScreen() {
               ))}
             </View>
 
+            {teacherError ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void refresh()}
+                style={styles.errorBanner}
+              >
+                <Ionicons name="alert-circle-outline" size={19} color={COLORS.danger} />
+                <Text style={styles.errorText}>{teacherError} Tap to retry.</Text>
+              </Pressable>
+            ) : null}
+
             {filteredTeacherEvents.length === 0 ? (
               <HistoryEmptyState
-                icon="calendar-outline"
-                title="No events found"
-                message="Create an event or change your search and filters."
+                icon={teacherError ? 'alert-circle-outline' : 'calendar-outline'}
+                title={teacherError && teacherEvents.length === 0
+                  ? 'Could not load events'
+                  : teacherEvents.length === 0 ? 'No events yet' : 'No matching events'}
+                message={teacherError && teacherEvents.length === 0
+                  ? 'Check the error above and retry.'
+                  : teacherEvents.length === 0
+                    ? 'Your events will appear here, including closed events.'
+                    : 'Try another search or status filter.'}
               />
             ) : (
               <FlatList
@@ -228,6 +248,12 @@ const styles = StyleSheet.create({
   safeArea:{flex:1,backgroundColor:COLORS.navy},
   container:{flex:1,backgroundColor:COLORS.background,paddingHorizontal:16,paddingTop:14},
   list:{paddingBottom:104},
+  errorBanner:{
+    flexDirection:'row',alignItems:'center',gap:9,
+    marginBottom:10,padding:12,borderRadius:14,
+    borderWidth:1,borderColor:'#F4CED4',backgroundColor:COLORS.dangerSoft,
+  },
+  errorText:{flex:1,fontSize:11,lineHeight:16,color:COLORS.danger,fontWeight:'600'},
   studentActions:{flexDirection:'row',gap:8,marginBottom:12},
   requestAction:{flex:1,minHeight:42,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:6,borderRadius:13,backgroundColor:COLORS.primarySoft},
   requestText:{fontSize:10.5,fontWeight:'800',color:COLORS.primary},

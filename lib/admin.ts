@@ -142,7 +142,8 @@ export async function getAdminEvents(): Promise<AdminResult<AdminEventRecord[]>>
     attendanceResult.error?.message ??
     null;
 
-  if (error) return { data: [], error };
+  // Event records remain usable even if optional creator/count details fail.
+  if (eventsResult.error || !eventsResult.data) return { data: [], error };
 
   const creators = new Map(
     (profilesResult.data ?? []).map((profile: any) => [
@@ -174,30 +175,70 @@ export async function getAdminEvents(): Promise<AdminResult<AdminEventRecord[]>>
 }
 
 export async function getAdminAttendance(): Promise<AdminResult<AdminAttendanceRecord[]>> {
+  // Join attendance.student_id to profiles.id ourselves. The recorded_by
+  // relationship points to the staff member who recorded a manual check-in.
   const { data, error } = await supabase
     .from('attendance')
-    .select(
-      'id, student_id, event_id, scanned_at, status, recorded_via, profiles ( full_name, email, student_id ), events ( event_code, title )'
-    )
+    .select('id, student_id, event_id, scanned_at, status, recorded_via')
     .order('scanned_at', { ascending: false });
 
   if (error) return { data: [], error: error.message };
 
+  const records = data ?? [];
+  const studentIds = [...new Set(records.map((row) => row.student_id))];
+  const eventIds = [...new Set(records.map((row) => row.event_id))];
+
+  const [profilesResult, eventsResult] = await Promise.all([
+    studentIds.length
+      ? supabase
+          .from('profiles')
+          .select('id, full_name, email, student_id')
+          .in('id', studentIds)
+      : Promise.resolve({ data: [], error: null }),
+    eventIds.length
+      ? supabase
+          .from('events')
+          .select('id, event_code, title')
+          .in('id', eventIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const profilesById = new Map<string, {
+    full_name: string | null;
+    email: string | null;
+    student_id: string | null;
+  }>();
+  for (const profile of profilesResult.data ?? []) {
+    profilesById.set(profile.id, profile);
+  }
+
+  const eventsById = new Map<string, {
+    event_code: string;
+    title: string;
+  }>();
+  for (const event of eventsResult.data ?? []) {
+    eventsById.set(event.id, event);
+  }
+
   return {
-    data: (data ?? []).map((row: any) => ({
-      id: row.id,
-      scannedAt: row.scanned_at,
-      status: (row.status ?? 'present') as AttendanceStatus,
-      recordedVia: (row.recorded_via??'qr') as 'qr'|'manual'|'correction',
-      studentProfileId: row.student_id,
-      studentName: row.profiles?.full_name ?? null,
-      studentEmail: row.profiles?.email ?? null,
-      schoolStudentId: row.profiles?.student_id ?? null,
-      eventId: row.event_id,
-      eventCode: row.events?.event_code ?? '',
-      eventTitle: row.events?.title ?? 'Unknown event',
-    })),
-    error: null,
+    data: records.map((row) => {
+      const student = profilesById.get(row.student_id);
+      const event = eventsById.get(row.event_id);
+      return {
+        id: row.id,
+        scannedAt: row.scanned_at,
+        status: (row.status ?? 'present') as AttendanceStatus,
+        recordedVia: (row.recorded_via ?? 'qr') as 'qr' | 'manual' | 'correction',
+        studentProfileId: row.student_id,
+        studentName: student?.full_name ?? null,
+        studentEmail: student?.email ?? null,
+        schoolStudentId: student?.student_id ?? null,
+        eventId: row.event_id,
+        eventCode: event?.event_code ?? '',
+        eventTitle: event?.title ?? 'Unknown event',
+      };
+    }),
+    error: profilesResult.error?.message ?? eventsResult.error?.message ?? null,
   };
 }
 
@@ -208,8 +249,11 @@ export async function getAdminEventAttendance(): Promise<AdminResult<AdminEventA
   ]);
 
   const error = eventsResult.error ?? attendanceResult.error;
-  if (error) return { data: [], error };
+  if (eventsResult.error && eventsResult.data.length === 0) {
+    return { data: [], error };
+  }
 
+  // If attendee details cannot load, still show every event and the error.
   return {
     data: eventsResult.data.map((event) => {
       const records = attendanceResult.data.filter((record) => record.eventId === event.id);
