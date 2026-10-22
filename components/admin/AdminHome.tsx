@@ -5,6 +5,7 @@ import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '@/constants/colors';
 import { getAdminDashboardStats, type AdminDashboardStats } from '@/lib/admin';
+import { formatAuditAction, getAuditLogs, type AuditLog } from '@/lib/audit';
 import { useAuth } from '@/lib/auth';
 import { useCachedProfile } from '@/lib/profile-cache';
 
@@ -28,12 +29,17 @@ export default function AdminHome() {
   const [stats, setStats] = useState(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activity, setActivity] = useState<AuditLog[]>([]);
 
   const loadStats = useCallback(async () => {
     setLoading(true);
-    const result = await getAdminDashboardStats();
-    setStats(result.data);
-    setError(result.error);
+    const [statsResult, auditResult] = await Promise.all([
+      getAdminDashboardStats(),
+      getAuditLogs(5),
+    ]);
+    setStats(statsResult.data);
+    setActivity(auditResult.data);
+    setError(statsResult.error ?? auditResult.error);
     setLoading(false);
   }, []);
 
@@ -103,6 +109,21 @@ export default function AdminHome() {
             <RoleCount icon="shield-checkmark-outline" label="Admins" value={stats.admins} />
           </View>
 
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <View style={styles.activityCard}>
+            {activity.length === 0 ? (
+              <View style={styles.activityEmpty}><Ionicons name="pulse-outline" size={20} color={COLORS.primary}/><Text style={styles.activityEmptyText}>System activity will appear here.</Text></View>
+            ) : activity.map((item, index) => (
+              <View key={item.id} style={[styles.activityRow, index < activity.length - 1 && styles.activityBorder]}>
+                <View style={styles.activityIcon}><Ionicons name={activityIcon(item.action)} size={16} color={COLORS.primary}/></View>
+                <View style={styles.activityCopy}>
+                  <Text style={styles.activityText}>{formatAuditAction(item)}</Text>
+                  <Text style={styles.activityTime}>{new Date(item.createdAt).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
           <Text style={styles.sectionTitle}>Management</Text>
           <View style={styles.quickGrid}>
             <QuickAction title="Users" subtitle="Manage registered accounts" icon="people-outline" onPress={() => router.push('/admin-users')} />
@@ -114,6 +135,13 @@ export default function AdminHome() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function activityIcon(action:string):keyof typeof Ionicons.glyphMap {
+  if(action.startsWith('attendance_')) return 'checkmark-done-outline';
+  if(action.startsWith('event_')) return 'calendar-outline';
+  if(action.startsWith('profile_')) return 'person-outline';
+  return 'pulse-outline';
 }
 
 function StatCard({ icon, value, label }: { icon: keyof typeof Ionicons.glyphMap; value: number; label: string }) {
@@ -184,6 +212,15 @@ const styles = StyleSheet.create({
   roleLabel: { flex: 1, color: COLORS.textPrimary, fontSize: 12, fontWeight: '700' },
   roleValue: { color: COLORS.primary, fontSize: 15, fontWeight: '900' },
   divider: { height: 1, backgroundColor: COLORS.border, marginLeft: 44 },
+  activityCard:{backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:20,paddingHorizontal:13,marginBottom:20},
+  activityRow:{minHeight:58,flexDirection:'row',alignItems:'center',gap:10,paddingVertical:10},
+  activityBorder:{borderBottomWidth:1,borderBottomColor:COLORS.border},
+  activityIcon:{width:34,height:34,borderRadius:11,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center'},
+  activityCopy:{flex:1},
+  activityText:{fontSize:10.5,lineHeight:15,color:COLORS.textPrimary,fontWeight:'700'},
+  activityTime:{marginTop:3,fontSize:8.5,color:COLORS.textSecondary},
+  activityEmpty:{minHeight:70,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:8},
+  activityEmptyText:{fontSize:10.5,color:COLORS.textSecondary},
   quickGrid: { gap: 10 },
   quickCard: { position: 'relative', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, borderRadius: 20, padding: 14, minHeight: 86, justifyContent: 'center', paddingLeft: 66, paddingRight: 44 },
   quickIcon: { position: 'absolute', left: 14, width: 40, height: 40, borderRadius: 13, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },

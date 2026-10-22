@@ -80,7 +80,7 @@ export default function TabLayout(){
     <Tabs.Screen name="index" options={{title:'Home',tabBarIcon:({color,focused})=><Ionicons name={focused?'home':'home-outline'} color={color} size={23}/>}}/>
     <Tabs.Screen name="events" options={{title:'Events',href:isStudent?undefined:null,tabBarIcon:({color,focused})=><Ionicons name={focused?'calendar':'calendar-outline'} color={color} size={23}/>}}/>
     <Tabs.Screen name="scan" options={{title:'Scan',href:isStudent?undefined:null,tabBarIcon:({color,focused})=><Ionicons name={focused?'qr-code':'qr-code-outline'} color={color} size={23}/>}}/>
-    <Tabs.Screen name="history" options={{title:'History',href:isAdmin?null:undefined,tabBarIcon:({color,focused})=><Ionicons name={focused?'time':'time-outline'} color={color} size={23}/>}}/>
+    <Tabs.Screen name="history" options={{title:isTeacher?'Attendance':'History',href:isAdmin?null:undefined,tabBarIcon:({color,focused})=><Ionicons name={isTeacher?(focused?'people':'people-outline'):(focused?'time':'time-outline')} color={color} size={23}/>}}/>
     <Tabs.Screen name="teacher" options={{title:'Manage',href:isTeacher?undefined:null,tabBarIcon:({color,focused})=><Ionicons name={focused?'calendar':'calendar-outline'} color={color} size={23}/>}}/>
     <Tabs.Screen name="admin-users" options={{title:'Users',href:isAdmin?undefined:null,tabBarIcon:({color,focused})=><Ionicons name={focused?'people':'people-outline'} color={color} size={23}/>}}/>
     <Tabs.Screen name="admin-events" options={{title:'Events',href:isAdmin?undefined:null,tabBarIcon:({color,focused})=><Ionicons name={focused?'calendar':'calendar-outline'} color={color} size={23}/>}}/>

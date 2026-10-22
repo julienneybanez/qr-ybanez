@@ -1,7 +1,7 @@
 import {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   useCallback,
   useState,
@@ -618,6 +618,17 @@ export default function TeacherScreen() {
         visible={!!viewEvent}
         event={viewEvent}
         onClose={() => setViewEvent(null)}
+        onViewAttendance={() => {
+          if (!viewEvent) return;
+          const id = viewEvent.id;
+          setViewEvent(null);
+          router.push({ pathname: '/history', params: { eventId: id } });
+        }}
+        onShowQr={() => {
+          if (!viewEvent) return;
+          handleShowQr(viewEvent);
+          setViewEvent(null);
+        }}
       />
     </SafeAreaView>
   );

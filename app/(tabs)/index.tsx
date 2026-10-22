@@ -1,17 +1,70 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHome from '@/components/admin/AdminHome';
 import { COLORS } from '@/constants/colors';
+import { getAttendanceHistory, getTeacherEventAttendance } from '@/lib/attendance';
 import { useAuth } from '@/lib/auth';
+import { getEventDisplayStatus, getEventsByTeacher, getStudentEvents } from '@/lib/events';
 import { useCachedProfile } from '@/lib/profile-cache';
+
+type HomeStats = {
+  first: number;
+  second: number;
+  third: number;
+};
+
+const EMPTY_STATS:HomeStats={first:0,second:0,third:0};
 
 export default function Index() {
   const { user } = useAuth();
   const { profile } = useCachedProfile(user?.id);
   const isTeacher = profile?.role === 'teacher';
   const isAdmin = profile?.role === 'admin';
+  const [stats,setStats]=useState<HomeStats>(EMPTY_STATS);
+
+  const loadStats=useCallback(async()=>{
+    if(!user||!profile||profile.role==='admin')return;
+
+    if(profile.role==='teacher'){
+      const[events,attendance]=await Promise.all([
+        getEventsByTeacher(user.id),
+        getTeacherEventAttendance(user.id),
+      ]);
+
+      setStats({
+        first:events.length,
+        second:events.filter(event=>getEventDisplayStatus(event)==='Ongoing').length,
+        third:attendance.reduce((total,event)=>total+event.attendeeCount,0),
+      });
+      return;
+    }
+
+    const[events,history]=await Promise.all([
+      getStudentEvents(),
+      getAttendanceHistory(user.id),
+    ]);
+
+    setStats({
+      first:events.filter(event=>getEventDisplayStatus(event)==='Upcoming').length,
+      second:history.length,
+      third:history.filter(record=>record.status==='late').length,
+    });
+  },[user?.id,profile?.role]);
+
+  useFocusEffect(useCallback(()=>{void loadStats()},[loadStats]));
+
+  const summary=isTeacher?[
+    {label:'My Events',value:stats.first,icon:'calendar-outline' as const},
+    {label:'Ongoing',value:stats.second,icon:'radio-button-on-outline' as const},
+    {label:'Attendance',value:stats.third,icon:'people-outline' as const},
+  ]:[
+    {label:'Upcoming',value:stats.first,icon:'calendar-outline' as const},
+    {label:'Attendance',value:stats.second,icon:'checkmark-done-outline' as const},
+    {label:'Late',value:stats.third,icon:'time-outline' as const},
+  ];
 
   if (isAdmin) {
     return <AdminHome />;
@@ -33,10 +86,14 @@ export default function Index() {
           </View>
           <Text style={styles.eyebrow}>School Event Attendance</Text>
           <Text style={styles.heroTitle}>Hi, {firstName}!</Text>
-          <Text style={styles.heroSubtitle}>{isTeacher ? 'Create events, display QR codes, and review student attendance for your classes and activities.' : 'Scan event QR codes and keep track of your school event attendance.'}</Text>
+          <Text style={styles.heroSubtitle}>{isTeacher ? 'Create events, display QR codes, and monitor attendance live for your classes and activities.' : 'Scan event QR codes and keep track of your school event attendance.'}</Text>
         </View>
 
         <View style={styles.body}>
+          <View style={styles.summaryRow}>
+            {summary.map(item=><SummaryCard key={item.label} {...item}/>)}
+          </View>
+
           <Pressable onPress={() => router.push(isTeacher ? '/teacher' : '/scan')} style={({pressed}) => [styles.mainAction,pressed&&styles.pressed]}>
             <View style={styles.mainActionIcon}><Ionicons name={isTeacher ? 'calendar-outline' : 'scan-outline'} size={30} color={COLORS.primary}/></View>
             <View style={styles.mainActionText}>
@@ -48,21 +105,25 @@ export default function Index() {
 
           <View style={[styles.quickGrid,isTeacher&&styles.teacherQuickGrid]}>
             {!isTeacher ? <QuickAction title="Events" subtitle="Browse school events" icon="calendar-outline" onPress={() => router.push('/events')}/> : null}
-            <QuickAction title="History" subtitle={isTeacher ? 'View event attendance' : 'View your attendance'} icon="time-outline" onPress={() => router.push('/history')}/>
+            <QuickAction title={isTeacher?'Attendance':'History'} subtitle={isTeacher ? 'Monitor event attendance' : 'View your attendance'} icon="time-outline" onPress={() => router.push('/history')}/>
             <QuickAction title="Profile" subtitle="Your account information" icon="person-outline" onPress={() => router.push('/profile')}/>
           </View>
 
           <View style={styles.infoCard}>
-            <View style={styles.infoArt}><Ionicons name={isTeacher ? 'qr-code-outline' : 'scan-outline'} size={30} color={COLORS.primary}/></View>
+            <View style={styles.infoArt}><Ionicons name={isTeacher ? 'people-outline' : 'scan-outline'} size={30} color={COLORS.primary}/></View>
             <View style={styles.infoText}>
               <Text style={styles.infoTitle}>How it works?</Text>
-              <Text style={styles.infoCopy}>{isTeacher ? 'Create an event, show its QR code to students, then review recorded attendance in History.' : 'Scan the QR code provided at school events. Browse available events and review your attendance history anytime.'}</Text>
+              <Text style={styles.infoCopy}>{isTeacher ? 'Create an event, show its QR code, then monitor the attendee list live from Attendance.' : 'Scan the QR code provided at school events. Browse available events and review your attendance history anytime.'}</Text>
             </View>
           </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function SummaryCard({label,value,icon}:{label:string;value:number;icon:keyof typeof Ionicons.glyphMap}){
+  return <View style={styles.summaryCard}><View style={styles.summaryIcon}><Ionicons name={icon} size={17} color={COLORS.primary}/></View><Text style={styles.summaryValue}>{value}</Text><Text style={styles.summaryLabel}>{label}</Text></View>;
 }
 
 type QuickActionProps={title:string;subtitle:string;icon:keyof typeof Ionicons.glyphMap;onPress:()=>void};
@@ -80,7 +141,13 @@ const styles=StyleSheet.create({
   glowLarge:{position:'absolute',width:250,height:250,borderRadius:125,backgroundColor:'#2148CC',right:-110,bottom:-110},glowSmall:{position:'absolute',width:160,height:160,borderRadius:80,backgroundColor:'#376BFF',right:44,bottom:-98,opacity:.8},
   heroTop:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},brandRow:{flexDirection:'row',alignItems:'center',gap:11},logoShell:{width:44,height:44,borderRadius:14,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},logo:{width:32,height:32},brandTitle:{color:'#fff',fontSize:14,fontWeight:'800'},brandSub:{color:'#9FAACA',fontSize:11,fontWeight:'600',marginTop:2},avatar:{width:40,height:40,borderRadius:20,backgroundColor:'#EEF3FF',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'rgba(255,255,255,.35)'},avatarText:{color:COLORS.primaryStrong,fontWeight:'800'},
   eyebrow:{marginTop:27,color:'#97A5C8',fontSize:11,fontWeight:'700',textTransform:'uppercase',letterSpacing:.8},heroTitle:{marginTop:7,color:'#fff',fontSize:30,fontWeight:'800',letterSpacing:-.8},heroSubtitle:{marginTop:8,maxWidth:310,color:'#C1CAE1',fontSize:13,lineHeight:19},
-  body:{paddingHorizontal:16,marginTop:-26},mainAction:{backgroundColor:COLORS.primary,borderRadius:24,padding:16,flexDirection:'row',alignItems:'center',gap:14,shadowColor:COLORS.primary,shadowOpacity:.24,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:5},mainActionIcon:{width:62,height:62,borderRadius:18,backgroundColor:'#FFFFFF',alignItems:'center',justifyContent:'center'},mainActionText:{flex:1},mainActionTitle:{color:'#fff',fontSize:18,fontWeight:'800'},mainActionSubtitle:{marginTop:4,color:'#EAF0FF',fontSize:11,lineHeight:16},actionArrow:{width:36,height:36,borderRadius:18,backgroundColor:'rgba(255,255,255,.2)',alignItems:'center',justifyContent:'center'},
+  body:{paddingHorizontal:16,marginTop:-26},
+  summaryRow:{flexDirection:'row',gap:8,marginBottom:10},
+  summaryCard:{flex:1,minHeight:84,backgroundColor:'#fff',borderWidth:1,borderColor:COLORS.border,borderRadius:17,padding:10},
+  summaryIcon:{width:29,height:29,borderRadius:10,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center'},
+  summaryValue:{marginTop:6,fontSize:18,fontWeight:'900',color:COLORS.textPrimary},
+  summaryLabel:{marginTop:1,fontSize:8.5,fontWeight:'700',color:COLORS.textSecondary},
+  mainAction:{backgroundColor:COLORS.primary,borderRadius:24,padding:16,flexDirection:'row',alignItems:'center',gap:14,shadowColor:COLORS.primary,shadowOpacity:.24,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:5},mainActionIcon:{width:62,height:62,borderRadius:18,backgroundColor:'#FFFFFF',alignItems:'center',justifyContent:'center'},mainActionText:{flex:1},mainActionTitle:{color:'#fff',fontSize:18,fontWeight:'800'},mainActionSubtitle:{marginTop:4,color:'#EAF0FF',fontSize:11,lineHeight:16},actionArrow:{width:36,height:36,borderRadius:18,backgroundColor:'rgba(255,255,255,.2)',alignItems:'center',justifyContent:'center'},
   quickGrid:{flexDirection:'row',gap:10,marginTop:12},teacherQuickGrid:{justifyContent:'center'},quickCard:{flex:1,minHeight:132,backgroundColor:'#fff',borderWidth:1,borderColor:COLORS.border,borderRadius:20,padding:14,shadowColor:COLORS.shadow,shadowOpacity:.035,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:1},quickIcon:{width:42,height:42,borderRadius:14,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center',marginBottom:15},quickTitle:{fontSize:14,fontWeight:'800',color:COLORS.textPrimary},quickSubtitle:{marginTop:5,fontSize:10,lineHeight:15,color:COLORS.textSecondary},
   infoCard:{marginTop:12,backgroundColor:'#fff',borderWidth:1,borderColor:COLORS.border,borderRadius:20,padding:14,flexDirection:'row',alignItems:'center',gap:13},infoArt:{width:72,height:72,borderRadius:18,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center'},infoText:{flex:1},infoTitle:{fontSize:13,fontWeight:'800',color:COLORS.textPrimary},infoCopy:{marginTop:5,fontSize:10.5,lineHeight:16,color:COLORS.textSecondary},pressed:{opacity:.82,transform:[{scale:.99}]},
 });

@@ -11,6 +11,8 @@ type Props = {
   creatorName?: string | null;
   creatorEmail?: string | null;
   attendanceCount?: number;
+  onViewAttendance?: () => void;
+  onShowQr?: () => void;
 };
 
 export default function EventDetailsModal({
@@ -20,10 +22,13 @@ export default function EventDetailsModal({
   creatorName,
   creatorEmail,
   attendanceCount,
+  onViewAttendance,
+  onShowQr,
 }: Props) {
   if (!event) return null;
 
   const status = getEventDisplayStatus(event);
+  const qrAvailable = status === 'Upcoming' || status === 'Ongoing';
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -46,21 +51,41 @@ export default function EventDetailsModal({
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
             <View style={styles.statusRow}>
-              <Text style={styles.sectionLabel}>Status</Text>
+              <Text style={styles.sectionLabel}>Event Hub</Text>
               <View style={styles.statusBadge}><Text style={styles.statusText}>{status}</Text></View>
             </View>
 
             <Detail icon="time-outline" label="Starts" value={event.start_time ? formatDateTime(new Date(event.start_time)) : 'Not set'} />
             <Detail icon="time-outline" label="Ends" value={event.end_time ? formatDateTime(new Date(event.end_time)) : 'Not set'} />
             <Detail icon="location-outline" label="Venue" value={event.venue || 'Not set'} />
-            <Detail icon="timer-outline" label="Late threshold" value={`After ${event.late_after_minutes ?? 15} minutes`} />
+            <Detail icon="timer-outline" label="Late threshold" value={'After ' + (event.late_after_minutes ?? 15) + ' minutes'} />
             {creatorName || creatorEmail ? <Detail icon="person-outline" label="Created by" value={creatorName || creatorEmail || 'Unknown'} /> : null}
-            {attendanceCount !== undefined ? <Detail icon="people-outline" label="Attendance" value={`${attendanceCount} recorded`} /> : null}
+            {attendanceCount !== undefined ? <Detail icon="people-outline" label="Attendance" value={attendanceCount + ' recorded'} /> : null}
 
             <Text style={styles.sectionLabel}>Description</Text>
             <View style={styles.descriptionBox}>
               <Text style={styles.description}>{event.description || 'No description provided.'}</Text>
             </View>
+
+            {onViewAttendance || (onShowQr && qrAvailable) ? (
+              <>
+                <Text style={[styles.sectionLabel, styles.actionLabel]}>Actions</Text>
+                <View style={styles.actions}>
+                  {onViewAttendance ? (
+                    <Pressable onPress={onViewAttendance} style={({ pressed }) => [styles.primaryAction, pressed && styles.pressed]}>
+                      <Ionicons name="people-outline" size={17} color="#FFFFFF" />
+                      <Text style={styles.primaryActionText}>View Attendance</Text>
+                    </Pressable>
+                  ) : null}
+                  {onShowQr && qrAvailable ? (
+                    <Pressable onPress={onShowQr} style={({ pressed }) => [styles.secondaryAction, pressed && styles.pressed]}>
+                      <Ionicons name="qr-code-outline" size={17} color={COLORS.primary} />
+                      <Text style={styles.secondaryActionText}>Show QR</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </>
+            ) : null}
           </ScrollView>
         </View>
       </View>
@@ -82,7 +107,7 @@ function Detail({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; 
 
 const styles=StyleSheet.create({
   overlay:{flex:1,backgroundColor:COLORS.overlay,justifyContent:'flex-end'},
-  sheet:{maxHeight:'84%',backgroundColor:COLORS.background,borderTopLeftRadius:28,borderTopRightRadius:28,paddingHorizontal:18,paddingBottom:24},
+  sheet:{maxHeight:'88%',backgroundColor:COLORS.background,borderTopLeftRadius:28,borderTopRightRadius:28,paddingHorizontal:18,paddingBottom:24},
   handle:{alignSelf:'center',width:44,height:5,borderRadius:999,backgroundColor:'#D3D9E5',marginTop:10,marginBottom:12},
   header:{flexDirection:'row',alignItems:'center',gap:11,paddingBottom:14,borderBottomWidth:1,borderBottomColor:COLORS.border},
   icon:{width:44,height:44,borderRadius:14,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center'},
@@ -93,6 +118,7 @@ const styles=StyleSheet.create({
   content:{paddingTop:14,paddingBottom:10},
   statusRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:8},
   sectionLabel:{fontSize:10.5,fontWeight:'800',color:COLORS.textSecondary,textTransform:'uppercase',letterSpacing:.7,marginBottom:8},
+  actionLabel:{marginTop:16},
   statusBadge:{borderRadius:999,backgroundColor:COLORS.primarySoft,paddingHorizontal:10,paddingVertical:6},
   statusText:{fontSize:10,fontWeight:'800',color:COLORS.primary},
   detailRow:{flexDirection:'row',alignItems:'center',gap:11,backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:16,padding:12,marginBottom:9},
@@ -102,4 +128,10 @@ const styles=StyleSheet.create({
   detailValue:{marginTop:2,fontSize:12.5,fontWeight:'700',color:COLORS.textPrimary},
   descriptionBox:{backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:16,padding:13},
   description:{fontSize:12,lineHeight:18,color:COLORS.textSecondary},
+  actions:{flexDirection:'row',gap:8},
+  primaryAction:{flex:1,minHeight:45,borderRadius:14,backgroundColor:COLORS.primary,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7},
+  primaryActionText:{fontSize:11.5,fontWeight:'800',color:'#FFFFFF'},
+  secondaryAction:{flex:1,minHeight:45,borderRadius:14,backgroundColor:COLORS.primarySoft,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7},
+  secondaryActionText:{fontSize:11.5,fontWeight:'800',color:COLORS.primary},
+  pressed:{opacity:.78},
 });

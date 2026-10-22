@@ -1,5 +1,10 @@
-import { clearAttendanceCaches, type AttendanceStatus } from './attendance';
-import { clearEventCaches, type CloudEvent, type EventStatus } from './events';
+import {
+  clearAttendanceCaches,
+  type AttendanceStatus,
+  type EventAttendanceGroup,
+  type EventAttendee,
+} from './attendance';
+import { clearEventCaches, getEventDisplayStatus, type CloudEvent, type EventStatus } from './events';
 import type { Role } from './profiles';
 import { supabase } from './supabase';
 
@@ -44,6 +49,11 @@ export type AdminAttendanceRecord = {
   eventId: string;
   eventCode: string;
   eventTitle: string;
+};
+
+export type AdminEventAttendanceGroup = EventAttendanceGroup & {
+  creatorName: string | null;
+  creatorEmail: string | null;
 };
 
 type AdminResult<T> = {
@@ -115,23 +125,14 @@ export async function updateAdminUserProfile(
     })
     .eq('id', userId);
 
-  return {
-    error: error?.message ?? null,
-  };
+  return { error: error?.message ?? null };
 }
 
 export async function getAdminEvents(): Promise<AdminResult<AdminEventRecord[]>> {
   const [eventsResult, profilesResult, attendanceResult] = await Promise.all([
-    supabase
-      .from('events')
-      .select('*')
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('profiles')
-      .select('id, full_name, email'),
-    supabase
-      .from('attendance')
-      .select('event_id'),
+    supabase.from('events').select('*').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id, full_name, email'),
+    supabase.from('attendance').select('event_id'),
   ]);
 
   const error =
@@ -140,27 +141,19 @@ export async function getAdminEvents(): Promise<AdminResult<AdminEventRecord[]>>
     attendanceResult.error?.message ??
     null;
 
-  if (error) {
-    return { data: [], error };
-  }
+  if (error) return { data: [], error };
 
   const creators = new Map(
     (profilesResult.data ?? []).map((profile: any) => [
       profile.id,
-      {
-        name: profile.full_name as string | null,
-        email: profile.email as string | null,
-      },
+      { name: profile.full_name as string | null, email: profile.email as string | null },
     ])
   );
 
   const attendanceCounts = new Map<string, number>();
 
   (attendanceResult.data ?? []).forEach((row: any) => {
-    attendanceCounts.set(
-      row.event_id,
-      (attendanceCounts.get(row.event_id) ?? 0) + 1
-    );
+    attendanceCounts.set(row.event_id, (attendanceCounts.get(row.event_id) ?? 0) + 1);
   });
 
   return {
@@ -187,12 +180,7 @@ export async function getAdminAttendance(): Promise<AdminResult<AdminAttendanceR
     )
     .order('scanned_at', { ascending: false });
 
-  if (error) {
-    return {
-      data: [],
-      error: error.message,
-    };
-  }
+  if (error) return { data: [], error: error.message };
 
   return {
     data: (data ?? []).map((row: any) => ({
@@ -211,6 +199,59 @@ export async function getAdminAttendance(): Promise<AdminResult<AdminAttendanceR
   };
 }
 
+export async function getAdminEventAttendance(): Promise<AdminResult<AdminEventAttendanceGroup[]>> {
+  const [eventsResult, attendanceResult] = await Promise.all([
+    getAdminEvents(),
+    getAdminAttendance(),
+  ]);
+
+  const error = eventsResult.error ?? attendanceResult.error;
+  if (error) return { data: [], error };
+
+  return {
+    data: eventsResult.data.map((event) => {
+      const records = attendanceResult.data.filter((record) => record.eventId === event.id);
+      const attendees: EventAttendee[] = records.map((record) => ({
+        attendanceId: record.id,
+        profileId: record.studentProfileId,
+        studentId: record.schoolStudentId,
+        studentName: record.studentName,
+        studentEmail: record.studentEmail,
+        scannedAt: record.scannedAt,
+        status: record.status,
+      }));
+
+      const timestamps = attendees
+        .map((attendee) => new Date(attendee.scannedAt).getTime())
+        .filter(Number.isFinite);
+
+      return {
+        eventId: event.id,
+        eventCode: event.event_code,
+        title: event.title,
+        venue: event.venue,
+        startTime: event.start_time,
+        endTime: event.end_time,
+        eventStatus: event.status,
+        displayStatus: getEventDisplayStatus(event),
+        lateAfterMinutes: event.late_after_minutes ?? 15,
+        attendeeCount: attendees.length,
+        presentCount: attendees.filter((item) => item.status === 'present').length,
+        lateCount: attendees.filter((item) => item.status === 'late').length,
+        excusedCount: attendees.filter((item) => item.status === 'excused').length,
+        firstCheckIn:
+          timestamps.length > 0 ? new Date(Math.min(...timestamps)).toISOString() : null,
+        lastCheckIn:
+          timestamps.length > 0 ? new Date(Math.max(...timestamps)).toISOString() : null,
+        attendees,
+        creatorName: event.creatorName,
+        creatorEmail: event.creatorEmail,
+      };
+    }),
+    error: null,
+  };
+}
+
 export async function updateAdminAttendanceStatus(
   attendanceId: string,
   status: AttendanceStatus
@@ -220,13 +261,8 @@ export async function updateAdminAttendanceStatus(
     .update({ status })
     .eq('id', attendanceId);
 
-  if (!error) {
-    clearAttendanceCaches();
-  }
-
-  return {
-    error: error?.message ?? null,
-  };
+  if (!error) clearAttendanceCaches();
+  return { error: error?.message ?? null };
 }
 
 export async function deleteAdminAttendance(
@@ -237,13 +273,8 @@ export async function deleteAdminAttendance(
     .delete()
     .eq('id', attendanceId);
 
-  if (!error) {
-    clearAttendanceCaches();
-  }
-
-  return {
-    error: error?.message ?? null,
-  };
+  if (!error) clearAttendanceCaches();
+  return { error: error?.message ?? null };
 }
 
 export async function setAdminEventStatus(
@@ -255,11 +286,6 @@ export async function setAdminEventStatus(
     .update({ status })
     .eq('id', eventId);
 
-  if (!error) {
-    clearEventCaches();
-  }
-
-  return {
-    error: error?.message ?? null,
-  };
+  if (!error) clearEventCaches();
+  return { error: error?.message ?? null };
 }

@@ -930,6 +930,324 @@ using (
 
 
 -- ============================================================
+-- 4. AUDIT LOGS / SYSTEM RECORDS
+-- ============================================================
+
+create table if not exists public.audit_logs (
+  id uuid primary key
+    default gen_random_uuid(),
+
+  actor_id uuid
+    references public.profiles (id)
+    on delete set null,
+
+  action text
+    not null,
+
+  entity_type text
+    not null,
+
+  entity_id text,
+
+  details jsonb
+    not null
+    default '{}'::jsonb,
+
+  created_at timestamptz
+    not null
+    default now()
+);
+
+
+alter table public.audit_logs
+enable row level security;
+
+
+drop policy
+if exists "Admins can view audit logs"
+on public.audit_logs;
+
+
+create policy
+"Admins can view audit logs"
+on public.audit_logs
+for select
+using (
+  public.is_admin()
+);
+
+
+create or replace function public.audit_event_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $audit_event$
+declare
+  audit_action text;
+begin
+
+  if tg_op = 'INSERT' then
+
+    insert into public.audit_logs (
+      actor_id,
+      action,
+      entity_type,
+      entity_id,
+      details
+    )
+    values (
+      coalesce(auth.uid(), new.created_by),
+      'event_created',
+      'event',
+      new.id::text,
+      jsonb_build_object(
+        'title', new.title,
+        'event_code', new.event_code,
+        'status', new.status
+      )
+    );
+
+    return new;
+
+  end if;
+
+
+  if old.status is distinct from new.status
+     and new.status = 'closed' then
+    audit_action := 'event_closed';
+  else
+    audit_action := 'event_updated';
+  end if;
+
+
+  insert into public.audit_logs (
+    actor_id,
+    action,
+    entity_type,
+    entity_id,
+    details
+  )
+  values (
+    auth.uid(),
+    audit_action,
+    'event',
+    new.id::text,
+    jsonb_build_object(
+      'title', new.title,
+      'event_code', new.event_code,
+      'old_status', old.status,
+      'new_status', new.status
+    )
+  );
+
+
+  return new;
+
+end;
+$audit_event$;
+
+
+drop trigger
+if exists audit_event_change_trigger
+on public.events;
+
+
+create trigger audit_event_change_trigger
+after insert or update
+on public.events
+for each row
+execute procedure public.audit_event_change();
+
+
+create or replace function public.audit_attendance_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $audit_attendance$
+declare
+  event_title text;
+  event_code_value text;
+  event_ref uuid;
+begin
+
+  if tg_op = 'DELETE' then
+    event_ref := old.event_id;
+  else
+    event_ref := new.event_id;
+  end if;
+
+
+  select
+    e.title,
+    e.event_code
+  into
+    event_title,
+    event_code_value
+  from public.events e
+  where e.id = event_ref;
+
+
+  if tg_op = 'INSERT' then
+
+    insert into public.audit_logs (
+      actor_id,
+      action,
+      entity_type,
+      entity_id,
+      details
+    )
+    values (
+      coalesce(auth.uid(), new.student_id),
+      'attendance_recorded',
+      'attendance',
+      new.id::text,
+      jsonb_build_object(
+        'event_id', new.event_id,
+        'event_title', event_title,
+        'event_code', event_code_value,
+        'status', new.status
+      )
+    );
+
+    return new;
+
+  end if;
+
+
+  if tg_op = 'UPDATE' then
+
+    insert into public.audit_logs (
+      actor_id,
+      action,
+      entity_type,
+      entity_id,
+      details
+    )
+    values (
+      auth.uid(),
+      'attendance_updated',
+      'attendance',
+      new.id::text,
+      jsonb_build_object(
+        'event_id', new.event_id,
+        'event_title', event_title,
+        'old_status', old.status,
+        'new_status', new.status,
+        'student_id', new.student_id
+      )
+    );
+
+    return new;
+
+  end if;
+
+
+  insert into public.audit_logs (
+    actor_id,
+    action,
+    entity_type,
+    entity_id,
+    details
+  )
+  values (
+    auth.uid(),
+    'attendance_deleted',
+    'attendance',
+    old.id::text,
+    jsonb_build_object(
+      'event_id', old.event_id,
+      'event_title', event_title,
+      'status', old.status,
+      'student_id', old.student_id
+    )
+  );
+
+
+  return old;
+
+end;
+$audit_attendance$;
+
+
+drop trigger
+if exists audit_attendance_change_trigger
+on public.attendance;
+
+
+create trigger audit_attendance_change_trigger
+after insert or update or delete
+on public.attendance
+for each row
+execute procedure public.audit_attendance_change();
+
+
+create or replace function public.audit_profile_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $audit_profile$
+begin
+
+  if old.full_name is not distinct from new.full_name
+     and old.role is not distinct from new.role
+     and old.student_id is not distinct from new.student_id then
+    return new;
+  end if;
+
+
+  insert into public.audit_logs (
+    actor_id,
+    action,
+    entity_type,
+    entity_id,
+    details
+  )
+  values (
+    auth.uid(),
+    'profile_updated',
+    'profile',
+    new.id::text,
+    jsonb_build_object(
+      'target_email', new.email,
+      'old_role', old.role,
+      'new_role', new.role,
+      'old_student_id', old.student_id,
+      'new_student_id', new.student_id
+    )
+  );
+
+
+  return new;
+
+end;
+$audit_profile$;
+
+
+drop trigger
+if exists audit_profile_change_trigger
+on public.profiles;
+
+
+create trigger audit_profile_change_trigger
+after update
+on public.profiles
+for each row
+execute procedure public.audit_profile_change();
+
+
+create index
+if not exists audit_logs_created_at_idx
+on public.audit_logs (created_at desc);
+
+create index
+if not exists audit_logs_actor_id_idx
+on public.audit_logs (actor_id);
+
+
+-- ============================================================
 -- REPORTING / ADMIN INDEXES
 -- ============================================================
 

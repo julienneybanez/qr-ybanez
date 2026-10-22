@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import PageHeader from '@/components/PageHeader';
 import { COLORS } from '@/constants/colors';
 import { getAdminAttendance, getAdminDashboardStats, getAdminEvents, type AdminAttendanceRecord, type AdminDashboardStats, type AdminEventRecord } from '@/lib/admin';
+import { formatAuditAction, getAuditLogs, type AuditLog } from '@/lib/audit';
 import { useAuth } from '@/lib/auth';
 import { useCachedProfile } from '@/lib/profile-cache';
 
@@ -22,18 +23,21 @@ export default function AdminReportsScreen(){
   const[attendance,setAttendance]=useState<AdminAttendanceRecord[]>([]);
   const[loading,setLoading]=useState(true);
   const[error,setError]=useState<string|null>(null);
+  const[activity,setActivity]=useState<AuditLog[]>([]);
 
   const load=useCallback(async()=>{
     setLoading(true);
-    const[statsResult,eventsResult,attendanceResult]=await Promise.all([
+    const[statsResult,eventsResult,attendanceResult,auditResult]=await Promise.all([
       getAdminDashboardStats(),
       getAdminEvents(),
       getAdminAttendance(),
+      getAuditLogs(15),
     ]);
     setStats(statsResult.data);
     setEvents(eventsResult.data);
     setAttendance(attendanceResult.data);
-    setError(statsResult.error??eventsResult.error??attendanceResult.error);
+    setActivity(auditResult.data);
+    setError(statsResult.error??eventsResult.error??attendanceResult.error??auditResult.error);
     setLoading(false);
   },[]);
 
@@ -75,6 +79,14 @@ export default function AdminReportsScreen(){
         <StatusRow label="Excused" value={stats.excusedAttendance} background={COLORS.primarySoft} color={COLORS.primary}/>
       </View>
 
+      <Text style={styles.sectionTitle}>System Activity</Text>
+      <View style={styles.activityCard}>
+        {activity.length===0?<Text style={styles.helper}>No system activity recorded yet.</Text>:activity.map((item,index)=><View key={item.id} style={[styles.activityRow,index<activity.length-1&&styles.activityBorder]}>
+          <View style={styles.activityIcon}><Ionicons name="pulse-outline" size={16} color={COLORS.primary}/></View>
+          <View style={styles.activityCopy}><Text style={styles.activityText}>{formatAuditAction(item)}</Text><Text style={styles.activityTime}>{new Date(item.createdAt).toLocaleString()}</Text></View>
+        </View>)}
+      </View>
+
       <Text style={styles.sectionTitle}>Per Event</Text>
       {eventRows.length===0?<View style={styles.empty}><Text style={styles.emptyTitle}>No events yet</Text><Text style={styles.helper}>Event summaries will appear here.</Text></View>:eventRows.map(row=><View key={row.event.id} style={styles.eventCard}>
         <View style={styles.eventTop}><View style={styles.eventIcon}><Ionicons name="calendar-outline" size={19} color={COLORS.primary}/></View><View style={styles.eventHeading}><Text style={styles.eventTitle}>{row.event.title}</Text><Text style={styles.eventCode}>{row.event.event_code}</Text></View><Text style={styles.total}>{row.total}</Text></View>
@@ -113,6 +125,13 @@ const styles=StyleSheet.create({
   statusLabel:{flex:1,fontSize:12,fontWeight:'700',color:COLORS.textPrimary},
   statusValue:{fontSize:15,fontWeight:'900'},
   divider:{height:1,backgroundColor:COLORS.border,marginLeft:42},
+  activityCard:{backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:18,paddingHorizontal:13,marginBottom:18},
+  activityRow:{minHeight:56,flexDirection:'row',alignItems:'center',gap:9,paddingVertical:9},
+  activityBorder:{borderBottomWidth:1,borderBottomColor:COLORS.border},
+  activityIcon:{width:32,height:32,borderRadius:10,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center'},
+  activityCopy:{flex:1},
+  activityText:{fontSize:10.5,lineHeight:15,fontWeight:'700',color:COLORS.textPrimary},
+  activityTime:{marginTop:2,fontSize:8.5,color:COLORS.textSecondary},
   eventCard:{backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:18,padding:13,marginBottom:10},
   eventTop:{flexDirection:'row',alignItems:'center',gap:10},
   eventIcon:{width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:COLORS.primarySoft},
