@@ -15,6 +15,7 @@ export type AttendanceRecord = {
 
 export type RegisterResult = {
   success: boolean;
+  alreadyCheckedIn?: boolean;
   message: string;
   eventTitle?: string;
   eventCode?: string;
@@ -96,15 +97,29 @@ export async function registerAttendance(rawPayload: string, studentId: string):
   if (error) return { success: false, message: error.message ?? 'QR verification failed.' };
 
   const result = data as {
-    event_title: string; event_code: string; status: AttendanceStatus;
-    scanned_at: string; late_after_minutes: number; school_student_id: string | null;
+    outcome?: 'recorded' | 'already_checked_in';
+    event_title: string;
+    event_code: string;
+    status: AttendanceStatus;
+    scanned_at: string;
+    late_after_minutes: number;
+    school_student_id: string | null;
   };
-  studentHistoryCache.delete(studentId);
-  teacherAttendanceCache.clear();
+  const alreadyCheckedIn = result.outcome === 'already_checked_in';
+
+  if (!alreadyCheckedIn) {
+    studentHistoryCache.delete(studentId);
+    teacherAttendanceCache.clear();
+  }
 
   return {
-    success: true,
-    message: result.status === 'late' ? 'Attendance recorded as Late.' : 'Attendance recorded as Present.',
+    success: !alreadyCheckedIn,
+    alreadyCheckedIn,
+    message: alreadyCheckedIn
+      ? 'Your attendance for this event has already been recorded. You do not need to scan again.'
+      : result.status === 'late'
+        ? 'Attendance recorded as Late.'
+        : 'Attendance recorded as Present.',
     eventTitle: result.event_title,
     eventCode: result.event_code,
     attendanceStatus: result.status,
