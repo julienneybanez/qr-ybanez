@@ -70,7 +70,6 @@ export default function Index() {
     return <AdminHome />;
   }
 
-  const firstName = profile?.full_name?.trim().split(/\s+/)[0] || (isTeacher ? 'Teacher' : 'there');
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -84,9 +83,6 @@ export default function Index() {
             </View>
             <View style={styles.avatar}><Text style={styles.avatarText}>{(profile?.full_name?.trim()?.[0] || 'U').toUpperCase()}</Text></View>
           </View>
-          <Text style={styles.eyebrow}>School Event Attendance</Text>
-          <Text style={styles.heroTitle}>Hi, {firstName}!</Text>
-          <Text style={styles.heroSubtitle}>{isTeacher ? 'Create events, display QR codes, and monitor attendance live for your classes and activities.' : 'Scan event QR codes and keep track of your school event attendance.'}</Text>
         </View>
 
         <View style={styles.body}>
@@ -137,11 +133,10 @@ function QuickAction({title,subtitle,icon,onPress}:QuickActionProps){
 
 const styles=StyleSheet.create({
   safeArea:{flex:1,backgroundColor:COLORS.navy},container:{flex:1,backgroundColor:COLORS.background},content:{paddingBottom:104},
-  hero:{minHeight:270,backgroundColor:COLORS.navy,paddingHorizontal:20,paddingTop:18,paddingBottom:50,overflow:'hidden'},
-  glowLarge:{position:'absolute',width:250,height:250,borderRadius:125,backgroundColor:'#2148CC',right:-110,bottom:-110},glowSmall:{position:'absolute',width:160,height:160,borderRadius:80,backgroundColor:'#376BFF',right:44,bottom:-98,opacity:.8},
+  hero:{minHeight:170,backgroundColor:COLORS.navy,paddingHorizontal:20,paddingTop:18,paddingBottom:34,overflow:'hidden'},
+  glowLarge:{position:'absolute',width:210,height:210,borderRadius:105,backgroundColor:'#2148CC',right:-96,bottom:-120},glowSmall:{position:'absolute',width:135,height:135,borderRadius:68,backgroundColor:'#376BFF',right:46,bottom:-86,opacity:.72},
   heroTop:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},brandRow:{flexDirection:'row',alignItems:'center',gap:11},logoShell:{width:44,height:44,borderRadius:14,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},logo:{width:32,height:32},brandTitle:{color:'#fff',fontSize:14,fontWeight:'800'},brandSub:{color:'#9FAACA',fontSize:11,fontWeight:'600',marginTop:2},avatar:{width:40,height:40,borderRadius:20,backgroundColor:'#EEF3FF',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'rgba(255,255,255,.35)'},avatarText:{color:COLORS.primaryStrong,fontWeight:'800'},
-  eyebrow:{marginTop:27,color:'#97A5C8',fontSize:11,fontWeight:'700',textTransform:'uppercase',letterSpacing:.8},heroTitle:{marginTop:7,color:'#fff',fontSize:30,fontWeight:'800',letterSpacing:-.8},heroSubtitle:{marginTop:8,maxWidth:310,color:'#C1CAE1',fontSize:13,lineHeight:19},
-  body:{paddingHorizontal:16,marginTop:-26},
+  body:{paddingHorizontal:16,marginTop:-42},
   summaryRow:{flexDirection:'row',gap:8,marginBottom:10},
   summaryCard:{flex:1,minHeight:84,backgroundColor:'#fff',borderWidth:1,borderColor:COLORS.border,borderRadius:17,padding:10},
   summaryIcon:{width:29,height:29,borderRadius:10,backgroundColor:COLORS.primarySoft,alignItems:'center',justifyContent:'center'},

@@ -6,8 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '@/constants/colors';
 import { getAdminDashboardStats, type AdminDashboardStats } from '@/lib/admin';
 import { formatAuditAction, getAuditLogs, type AuditLog } from '@/lib/audit';
-import { useAuth } from '@/lib/auth';
-import { useCachedProfile } from '@/lib/profile-cache';
 
 const EMPTY_STATS: AdminDashboardStats = {
   totalUsers: 0,
@@ -24,8 +22,6 @@ const EMPTY_STATS: AdminDashboardStats = {
 };
 
 export default function AdminHome() {
-  const { user } = useAuth();
-  const { profile } = useCachedProfile(user?.id);
   const [stats, setStats] = useState(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +45,6 @@ export default function AdminHome() {
     }, [loadStats])
   );
 
-  const firstName = profile?.full_name?.trim().split(/\s+/)[0] || 'Admin';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -72,8 +67,6 @@ export default function AdminHome() {
               <Text style={styles.adminBadgeText}>ADMIN</Text>
             </View>
           </View>
-          <Text style={styles.heroTitle}>Hi, {firstName}!</Text>
-          <Text style={styles.heroSubtitle}>Monitor users, events, and attendance records across QR-ATT.</Text>
         </View>
 
         <View style={styles.body}>
@@ -178,9 +171,9 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.navy },
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingBottom: 110 },
-  hero: { minHeight: 250, backgroundColor: COLORS.navy, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 44, overflow: 'hidden' },
-  glowLarge: { position: 'absolute', width: 250, height: 250, borderRadius: 125, backgroundColor: '#2148CC', right: -110, bottom: -110 },
-  glowSmall: { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: '#376BFF', right: 44, bottom: -98, opacity: 0.8 },
+  hero: { minHeight: 154, backgroundColor: COLORS.navy, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 28, overflow: 'hidden' },
+  glowLarge: { position: 'absolute', width: 210, height: 210, borderRadius: 105, backgroundColor: '#2148CC', right: -96, bottom: -126 },
+  glowSmall: { position: 'absolute', width: 132, height: 132, borderRadius: 66, backgroundColor: '#376BFF', right: 40, bottom: -90, opacity: 0.7 },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   logoShell: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.1)', alignItems: 'center', justifyContent: 'center' },
@@ -189,9 +182,6 @@ const styles = StyleSheet.create({
   brandSub: { color: '#9FAACA', fontSize: 11, fontWeight: '600', marginTop: 2 },
   adminBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: 'rgba(67,108,255,.38)', borderWidth: 1, borderColor: 'rgba(255,255,255,.16)' },
   adminBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.7 },
-  eyebrow: { marginTop: 27, color: '#97A5C8', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
-  heroTitle: { marginTop: 7, color: '#FFFFFF', fontSize: 30, fontWeight: '800', letterSpacing: -0.8 },
-  heroSubtitle: { marginTop: 8, maxWidth: 310, color: '#C1CAE1', fontSize: 13, lineHeight: 19 },
   body: { paddingHorizontal: 16, marginTop: 0, paddingTop: 16 },
   sectionTop: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: 10 },
