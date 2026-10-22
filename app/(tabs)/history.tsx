@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EventAttendanceCard from '@/components/attendance/EventAttendanceCard';
@@ -36,6 +36,9 @@ export default function HistoryScreen() {
   const [teacherError, setTeacherError] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => initialStudentRecords === null && initialTeacherEvents === null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  // A route param is a one-time navigation request, not a persistent selection.
+  // Live attendance refreshes must never reopen an older event.
+  const handledRouteEventId = useRef<string | null>(null);
   const [query, setQuery] = useState('');
   const [eventFilter, setEventFilter] = useState<EventFilter>('all');
   const [requestOpen, setRequestOpen] = useState(false);
@@ -97,7 +100,17 @@ export default function HistoryScreen() {
   }, [user?.id, profile?.role, refresh]);
 
   useEffect(() => {
-    if (profile?.role === 'teacher' && eventId && teacherEvents.some((event) => event.eventId === eventId)) {
+    if (!eventId) {
+      handledRouteEventId.current = null;
+      return;
+    }
+
+    if (
+      profile?.role === 'teacher' &&
+      handledRouteEventId.current !== eventId &&
+      teacherEvents.some((event) => event.eventId === eventId)
+    ) {
+      handledRouteEventId.current = eventId;
       setSelectedEventId(eventId);
     }
   }, [eventId, profile?.role, teacherEvents]);
