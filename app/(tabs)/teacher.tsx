@@ -601,7 +601,7 @@ export default function TeacherScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.navy,
   },
   container: {
     flex: 1,

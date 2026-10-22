@@ -1,12 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import {
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-  type KeyboardTypeOptions,
-} from 'react-native';
-
+import { Pressable, StyleSheet, TextInput, View, type KeyboardTypeOptions } from 'react-native';
 import { COLORS } from '@/constants/colors';
 
 type Props = {
@@ -24,56 +17,27 @@ type Props = {
   onTogglePassword?: () => void;
 };
 
-export default function AuthInput({
-  icon,
-  value,
-  onChangeText,
-  placeholder,
-  editable,
-  autoCapitalize,
-  autoCorrect,
-  keyboardType,
-  secureTextEntry,
-  showPasswordToggle = false,
-  passwordVisible = false,
-  onTogglePassword,
-}: Props) {
+export default function AuthInput(props: Props) {
   return (
     <View style={styles.inputShell}>
-      <Ionicons
-        name={icon}
-        size={19}
-        color={COLORS.textSecondary}
-      />
-
+      <View style={styles.iconTile}>
+        <Ionicons name={props.icon} size={18} color={COLORS.primary} />
+      </View>
       <TextInput
         style={styles.input}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.textSecondary}
-        editable={editable}
-        autoCapitalize={autoCapitalize}
-        autoCorrect={autoCorrect}
-        keyboardType={keyboardType}
-        secureTextEntry={secureTextEntry}
+        value={props.value}
+        onChangeText={props.onChangeText}
+        placeholder={props.placeholder}
+        placeholderTextColor="#98A3BB"
+        editable={props.editable}
+        autoCapitalize={props.autoCapitalize}
+        autoCorrect={props.autoCorrect}
+        keyboardType={props.keyboardType}
+        secureTextEntry={props.secureTextEntry}
       />
-
-      {showPasswordToggle ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={onTogglePassword}
-          hitSlop={8}
-        >
-          <Ionicons
-            name={
-              passwordVisible
-                ? 'eye-off-outline'
-                : 'eye-outline'
-            }
-            size={20}
-            color={COLORS.textSecondary}
-          />
+      {props.showPasswordToggle ? (
+        <Pressable accessibilityRole="button" onPress={props.onTogglePassword} hitSlop={8}>
+          <Ionicons name={props.passwordVisible ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textSecondary} />
         </Pressable>
       ) : null}
     </View>
@@ -81,21 +45,7 @@ export default function AuthInput({
 }
 
 const styles = StyleSheet.create({
-  inputShell: {
-    minHeight: 52,
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: COLORS.textPrimary,
-    paddingVertical: 12,
-  },
+  inputShell: { minHeight: 54, backgroundColor: '#F8FAFD', borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  iconTile: { width: 34, height: 34, borderRadius: 11, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  input: { flex: 1, fontSize: 14, color: COLORS.textPrimary, paddingVertical: 12 },
 });
