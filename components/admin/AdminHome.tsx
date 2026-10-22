@@ -57,9 +57,8 @@ export default function AdminHome() {
               <View style={styles.logoShell}>
                 <Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
               </View>
-              <View>
-                <Text style={styles.brandTitle}>QR Attendance</Text>
-                <Text style={styles.brandSub}>QR-Ybanez</Text>
+              <View style={styles.brandCopy}>
+                <Text style={styles.brandTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>QR Attendance</Text>
               </View>
             </View>
             <View style={styles.adminBadge}>
@@ -171,18 +170,18 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.navy },
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingBottom: 110 },
-  hero: { minHeight: 154, backgroundColor: COLORS.navy, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 28, overflow: 'hidden' },
-  glowLarge: { position: 'absolute', width: 210, height: 210, borderRadius: 105, backgroundColor: '#2148CC', right: -96, bottom: -126 },
-  glowSmall: { position: 'absolute', width: 132, height: 132, borderRadius: 66, backgroundColor: '#376BFF', right: 40, bottom: -90, opacity: 0.7 },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  hero: { backgroundColor: COLORS.navy, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 17, overflow: 'hidden' },
+  glowLarge: { position: 'absolute', width: 145, height: 145, borderRadius: 73, backgroundColor: '#2148CC', right: -80, bottom: -116 },
+  glowSmall: { position: 'absolute', width: 98, height: 98, borderRadius: 49, backgroundColor: '#376BFF', right: 28, bottom: -78, opacity: 0.55 },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brandRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 11 },
   logoShell: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.1)', alignItems: 'center', justifyContent: 'center' },
   logo: { width: 32, height: 32 },
-  brandTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  brandSub: { color: '#9FAACA', fontSize: 11, fontWeight: '600', marginTop: 2 },
-  adminBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: 'rgba(67,108,255,.38)', borderWidth: 1, borderColor: 'rgba(255,255,255,.16)' },
+  brandCopy: { flex: 1, minWidth: 0 },
+  brandTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  adminBadge: { flexDirection: 'row', flexShrink: 0, alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: 'rgba(67,108,255,.38)', borderWidth: 1, borderColor: 'rgba(255,255,255,.16)' },
   adminBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.7 },
-  body: { paddingHorizontal: 16, marginTop: 0, paddingTop: 16 },
+  body: { paddingHorizontal: 16, marginTop: 0, paddingTop: 12 },
   sectionTop: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: 10 },
   errorCard: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: COLORS.dangerSoft, borderRadius: 16, padding: 13, marginBottom: 12, borderWidth: 1, borderColor: '#FFE0E5' },
