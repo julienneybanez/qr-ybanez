@@ -70,42 +70,37 @@ export default function AdminEventsScreen(){
     setEditingPart('date');
   };
 
-  const openPicker=(target:EditTarget)=>{
+  const openPicker=(target:EditTarget,part:'date'|'time')=>{
     setMessage(null);
+    setEditingPart(part);
     setEditTarget(target);
-    setEditingPart('date');
   };
+
+  const closePicker=()=>setEditTarget(null);
 
   const onPickerChange=(event:DateTimePickerEvent,selected?:Date)=>{
     if(!editTarget)return;
 
     if(event.type==='dismissed'||!selected){
-      setEditTarget(null);
-      setEditingPart('date');
+      if(Platform.OS==='android')closePicker();
       return;
     }
 
     const current=editTarget==='start'?startDate:endDate;
     const next=new Date(current);
-    const isAndroid=Platform.OS==='android';
 
-    if(isAndroid&&editingPart==='date'){
+    if(editingPart==='date'){
       next.setFullYear(selected.getFullYear(),selected.getMonth(),selected.getDate());
-    }else if(isAndroid&&editingPart==='time'){
-      next.setHours(selected.getHours(),selected.getMinutes(),0,0);
     }else{
-      next.setFullYear(selected.getFullYear(),selected.getMonth(),selected.getDate());
       next.setHours(selected.getHours(),selected.getMinutes(),0,0);
     }
 
-    editTarget==='start'?setStartDate(next):setEndDate(next);
+    if(editTarget==='start')setStartDate(next);
+    else setEndDate(next);
 
-    if(isAndroid&&editingPart==='date'){
-      setEditingPart('time');
-    }else{
-      setEditTarget(null);
-      setEditingPart('date');
-    }
+    // Android closes its native dialog after one selection.
+    // iOS stays open until Done is pressed.
+    if(Platform.OS==='android')closePicker();
   };
 
   const validate=()=>{
@@ -192,6 +187,7 @@ export default function AdminEventsScreen(){
     setLateAfterMinutes(event.late_after_minutes??15);
     setQrEvent(null);
     setMessage(null);
+    setEditTarget(null);
   };
 
   const showQr=(event:AdminEventRecord)=>{
@@ -260,6 +256,7 @@ export default function AdminEventsScreen(){
         onLateAfterMinutesChange={setLateAfterMinutes}
         onOpenPicker={openPicker}
         onPickerChange={onPickerChange}
+        onClosePicker={closePicker}
         onQuickEnd={ms=>setEndDate(new Date(startDate.getTime()+ms))}
         onSave={()=>void saveEvent()}
         onCancel={resetForm}
