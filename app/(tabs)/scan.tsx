@@ -1,13 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { router } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppButton from '@/components/AppButton';
+import StampUnlockModal from '@/components/passport/StampUnlockModal';
 import { COLORS } from '@/constants/colors';
 import { registerAttendance, type RegisterResult } from '@/lib/attendance';
 import { useAuth } from '@/lib/auth';
+import { getMyPassport, type PassportStamp } from '@/lib/passport';
 
 export default function ScanScreen() {
   const { user } = useAuth();
@@ -16,12 +19,14 @@ export default function ScanScreen() {
   const [scanned,setScanned]=useState(false);
   const [processing,setProcessing]=useState(false);
   const [result,setResult]=useState<RegisterResult|null>(null);
+  const [unlockedStamp,setUnlockedStamp]=useState<PassportStamp|null>(null);
 
   useEffect(()=>{
     if(!isFocused){
       setScanned(false);
       setProcessing(false);
       setResult(null);
+      setUnlockedStamp(null);
     }
   },[isFocused]);
 
@@ -35,6 +40,18 @@ export default function ScanScreen() {
       const next=await registerAttendance(data,user?.id??'unknown');
       if(!isFocused)return;
       setResult(next);
+      // Attendance is recorded first; passport decoration must never delay QR validation.
+      if(next.success && !next.alreadyCheckedIn && next.eventCode && next.recordedAt){
+        void getMyPassport().then(response=>{
+          if(!response.data || !isFocused)return;
+          const recorded=new Date(next.recordedAt!).getTime();
+          const earned=[...response.data.signature,...response.data.regular].find(stamp=>
+            stamp.earnedAt && stamp.eventCodes.includes(next.eventCode!) &&
+            Math.abs(new Date(stamp.earnedAt).getTime()-recorded)<1000
+          );
+          if(earned)setUnlockedStamp(earned);
+        }).catch(()=>{});
+      }
     }finally{
       if(isFocused)setProcessing(false);
     }
@@ -44,6 +61,7 @@ export default function ScanScreen() {
     setScanned(false);
     setProcessing(false);
     setResult(null);
+    setUnlockedStamp(null);
   };
 
   if(!permission){
@@ -118,6 +136,7 @@ export default function ScanScreen() {
         )}
       </ScrollView>
     )}
+    <StampUnlockModal stamp={unlockedStamp} onClose={()=>setUnlockedStamp(null)} onViewPassport={()=>{setUnlockedStamp(null);router.push('/passport');}}/>
   </SafeAreaView>;
 }
 
