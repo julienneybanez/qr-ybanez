@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { COLORS } from '@/constants/colors';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import type { AttendanceStatus } from '@/lib/attendance';
 import { cancelCorrectionRequest, getCorrectionRequests, submitCorrectionRequest, type CorrectionIssue, type CorrectionRequest } from '@/lib/secure-attendance';
 import { supabase } from '@/lib/supabase';
@@ -97,7 +98,9 @@ export default function StudentCorrectionModal({visible,studentId,initialEventId
     Alert.alert('Request sent','Your request is waiting for review.');
   };
 
-  return <Modal visible={visible} animationType="slide" onRequestClose={()=>pickerOpen?setPickerOpen(false):onClose()}>
+  return <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={()=>pickerOpen?setPickerOpen(false):onClose()}>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable onPress={onClose} style={styles.back}><Ionicons name="arrow-back" size={21} color="#FFFFFF"/></Pressable>
@@ -194,9 +197,12 @@ export default function StudentCorrectionModal({visible,studentId,initialEventId
         </View>
       </View>:null}
     </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   </Modal>;
 }
 const styles=StyleSheet.create({
+  safeArea:{flex:1,backgroundColor:COLORS.navy},
  screen:{flex:1,backgroundColor:COLORS.background},header:{backgroundColor:COLORS.navy,paddingTop:14,paddingHorizontal:16,paddingBottom:16,flexDirection:'row',alignItems:'center',gap:12},
  back:{width:39,height:39,borderRadius:12,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},headerTitle:{color:'#FFFFFF',fontSize:17,fontWeight:'800'},
  tabs:{flexDirection:'row',gap:8,margin:14},tab:{flex:1,minHeight:39,borderRadius:12,borderWidth:1,borderColor:COLORS.border,backgroundColor:COLORS.card,justifyContent:'center',alignItems:'center'},tabActive:{backgroundColor:COLORS.primarySoft,borderColor:'#97ACFF'},tabText:{color:COLORS.textSecondary,fontWeight:'700',fontSize:11},tabTextActive:{color:COLORS.primary},

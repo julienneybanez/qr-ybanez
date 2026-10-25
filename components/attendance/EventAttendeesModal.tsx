@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { COLORS } from '@/constants/colors';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import type { AttendanceStatus, EventAttendanceGroup, EventAttendee } from '@/lib/attendance';
 import { formatHistoryDate } from '@/components/history/historyUtils';
@@ -121,7 +122,9 @@ export default function EventAttendeesModal({visible,group,editable=false,onClos
 
   if(!group)return null;
 
-  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+  return <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable onPress={onClose} style={styles.headerAction}><Ionicons name="arrow-back" size={21} color="#FFFFFF"/></Pressable>
@@ -193,11 +196,14 @@ export default function EventAttendeesModal({visible,group,editable=false,onClos
         </View>)}
       </ScrollView>}
     </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   </Modal>;
 }
 
 function Empty({title}:{title:string}){return <View style={styles.empty}><Ionicons name="people-outline" color={COLORS.primary} size={25}/><Text style={styles.helper}>{title}</Text></View>}
 const styles=StyleSheet.create({
+  safeArea:{flex:1,backgroundColor:COLORS.navy},
   screen:{flex:1,backgroundColor:COLORS.background},header:{backgroundColor:COLORS.navy,paddingTop:14,paddingHorizontal:16,paddingBottom:16,flexDirection:'row',alignItems:'center',gap:10},
   headerAction:{height:38,width:38,borderRadius:12,backgroundColor:'rgba(255,255,255,.1)',alignItems:'center',justifyContent:'center'},
   headerCopy:{flex:1},title:{fontSize:16,fontWeight:'800',color:'#FFFFFF'},sub:{marginTop:4,fontSize:10,color:'#B2C0DF'},
