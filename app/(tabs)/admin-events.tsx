@@ -12,6 +12,7 @@ import { getAdminEvents, type AdminEventRecord } from '@/lib/admin';
 import { useAuth } from '@/lib/auth';
 import { closeEvent, createEvent, getEventDisplayStatus, updateEvent, type CloudEvent } from '@/lib/events';
 import { useCachedProfile } from '@/lib/profile-cache';
+import { getStampCollections, setStampCollectionPublished, type StampCollection } from '@/lib/passport';
 
 function parseEventDate(value:string|null,fallback:Date){
   if(!value)return fallback;
@@ -40,6 +41,8 @@ export default function AdminEventsScreen(){
   const[message,setMessage]=useState<string|null>(null);
   const[messageType,setMessageType]=useState<MessageType>('success');
   const[saving,setSaving]=useState(false);
+  const[collections,setCollections]=useState<StampCollection[]>([]);
+  const[stampCollectionId,setStampCollectionId]=useState<string|null>(null);
 
   const loadEvents=useCallback(async()=>{
     setLoading(true);
@@ -53,7 +56,10 @@ export default function AdminEventsScreen(){
   },[]);
 
   useFocusEffect(useCallback(()=>{
-    if(profile?.role==='admin')void loadEvents();
+    if(profile?.role==='admin'){
+      void loadEvents();
+      void getStampCollections().then(result=>{ if(!result.error)setCollections(result.data); });
+    }
   },[profile?.role,loadEvents]));
 
   const resetForm=()=>{
@@ -66,6 +72,7 @@ export default function AdminEventsScreen(){
     setStartDate(now);
     setEndDate(new Date(now.getTime()+60*60*1000));
     setLateAfterMinutes(15);
+    setStampCollectionId(null);
     setEditTarget(null);
     setEditingPart('date');
   };
@@ -137,6 +144,7 @@ export default function AdminEventsScreen(){
       start:startDate.toISOString(),
       end:endDate.toISOString(),
       lateAfterMinutes,
+      ...(collections.length ? { stampCollectionId } : {}),
     };
 
     if(editingEvent){
@@ -185,6 +193,7 @@ export default function AdminEventsScreen(){
     setStartDate(parseEventDate(event.start_time,now));
     setEndDate(parseEventDate(event.end_time,new Date(now.getTime()+60*60*1000)));
     setLateAfterMinutes(event.late_after_minutes??15);
+    setStampCollectionId(event.stamp_collection_id??null);
     setQrEvent(null);
     setMessage(null);
     setEditTarget(null);
@@ -216,6 +225,13 @@ export default function AdminEventsScreen(){
         },
       },
     ]);
+  };
+
+  const toggleCollection=async(item:StampCollection)=>{
+    const error=await setStampCollectionPublished(item.id,!item.is_published);
+    if(error){Alert.alert('Could not update collection',error);return;}
+    const refreshed=await getStampCollections();
+    if(!refreshed.error)setCollections(refreshed.data);
   };
 
   const filteredEvents=useMemo(()=>{
@@ -260,9 +276,33 @@ export default function AdminEventsScreen(){
         onQuickEnd={ms=>setEndDate(new Date(startDate.getTime()+ms))}
         onSave={()=>void saveEvent()}
         onCancel={resetForm}
+        stampSection={<View style={styles.stampSection}>
+          <Text style={styles.stampSectionTitle}>Event Passport · Signature Collection</Text>
+          <Text style={styles.stampSectionHint}>A regular stamp is automatic. Link this event to a commemorative collection to award its special stamp instead.</Text>
+          <View style={styles.stampChoices}>
+            {[{id:null,label:'Regular event'},...collections.map(item=>({id:item.id,label:item.display_name}))].map(choice=>
+              <Pressable key={choice.id??'regular'} disabled={saving} onPress={()=>setStampCollectionId(choice.id)} style={[styles.stampChoice,stampCollectionId===choice.id&&styles.stampChoiceSelected]}>
+                <Ionicons name={stampCollectionId===choice.id?'radio-button-on':'radio-button-off'} size={16} color={COLORS.primary}/>
+                <Text style={styles.stampChoiceText}>{choice.label}</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>}
       />
 
       {qrEvent?<EventQRCodeCard event={qrEvent}/>:null}
+
+      {collections.length>0?<View style={styles.collectionPanel}>
+        <View style={styles.collectionHeader}><Ionicons name="albums-outline" size={19} color={COLORS.primary}/><Text style={styles.collectionHeading}>Commemorative Collections</Text></View>
+        <Text style={styles.collectionHelper}>Link events using the form above. Publishing controls whether the collection appears in students' passports.</Text>
+        {collections.map(item=><View key={item.id} style={styles.collectionRow}>
+          <View style={styles.collectionInfo}><Text style={styles.collectionName}>{item.display_name}</Text><Text style={styles.collectionState}>{item.is_published?'Published':'Hidden from students'}</Text></View>
+          <Pressable accessibilityRole="button" onPress={()=>void toggleCollection(item)} style={[styles.collectionToggle,item.is_published&&styles.collectionToggleActive]}>
+            <Ionicons name={item.is_published?'eye-outline':'eye-off-outline'} size={14} color={COLORS.primary}/>
+            <Text style={styles.collectionToggleText}>{item.is_published?'Visible':'Hidden'}</Text>
+          </Pressable>
+        </View>)}
+      </View>:null}
 
       <View style={styles.listHeader}>
         <View><Text style={styles.listTitle}>All Events</Text></View>
@@ -338,6 +378,8 @@ const styles=StyleSheet.create({
   safeArea:{flex:1,backgroundColor:COLORS.navy},
   container:{flex:1,backgroundColor:COLORS.background},
   content:{paddingHorizontal:20,paddingTop:12,paddingBottom:110},
+  collectionPanel:{marginTop:12,marginBottom:17,padding:14,borderRadius:18,backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border},collectionHeader:{flexDirection:'row',alignItems:'center',gap:8},collectionHeading:{fontSize:14,fontWeight:'900',color:COLORS.textPrimary},collectionHelper:{fontSize:10,color:COLORS.textSecondary,lineHeight:16,marginTop:7,marginBottom:7},collectionRow:{flexDirection:'row',alignItems:'center',borderTopWidth:1,borderTopColor:COLORS.border,paddingVertical:10},collectionInfo:{flex:1},collectionName:{fontSize:11.5,fontWeight:'800',color:COLORS.textPrimary},collectionState:{fontSize:10,color:COLORS.textSecondary,marginTop:3},collectionToggle:{flexDirection:'row',gap:4,alignItems:'center',borderRadius:99,backgroundColor:COLORS.primarySoft,paddingHorizontal:10,paddingVertical:7},collectionToggleActive:{backgroundColor:COLORS.primarySoft},collectionToggleText:{fontSize:10,fontWeight:'800',color:COLORS.primary},
+  stampSection:{marginTop:18,backgroundColor:COLORS.primarySoft,borderRadius:14,padding:12},stampSectionTitle:{fontSize:12,fontWeight:'900',color:COLORS.textPrimary},stampSectionHint:{fontSize:10,color:COLORS.textSecondary,lineHeight:15,marginTop:4},stampChoices:{marginTop:10,gap:6},stampChoice:{minHeight:40,borderRadius:11,backgroundColor:COLORS.card,paddingHorizontal:10,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8,borderWidth:1,borderColor:COLORS.border},stampChoiceSelected:{borderColor:COLORS.primary},stampChoiceText:{fontWeight:'700',fontSize:11,color:COLORS.textPrimary},
   listHeader:{marginTop:8,marginBottom:11,flexDirection:'row',alignItems:'flex-end',justifyContent:'space-between',gap:10},
   listTitle:{fontSize:19,fontWeight:'800',color:COLORS.textPrimary},
   loadingText:{fontSize:9.5,color:COLORS.textSecondary},

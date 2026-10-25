@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import type { ReactNode } from 'react';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { COLORS } from '@/constants/colors';
@@ -40,6 +41,7 @@ type Props = {
   onQuickEnd: (durationMs: number) => void;
   onSave: () => void;
   onCancel: () => void;
+  stampSection?: ReactNode;
 };
 
 export default function TeacherEventForm(p: Props) {
@@ -57,7 +59,7 @@ export default function TeacherEventForm(p: Props) {
 
       <View style={styles.card}>
         <FieldLabel text="Event title"/>
-        <TextInput style={styles.input} value={p.title} onChangeText={p.onTitleChange} placeholder="e.g. Founders Day Assembly" placeholderTextColor={COLORS.textSecondary} editable={!p.saving}/>
+        <TextInput style={styles.input} value={p.title} onChangeText={p.onTitleChange} placeholder="e.g. Foundation Day Assembly" placeholderTextColor={COLORS.textSecondary} editable={!p.saving}/>
         <FieldLabel text="Event code"/>
         <TextInput style={[styles.input, p.editingEvent && styles.inputDisabled]} value={p.eventId} onChangeText={p.onEventIdChange} placeholder="e.g. EVT-2026-0002" placeholderTextColor={COLORS.textSecondary} autoCapitalize="characters" editable={!p.editingEvent && !p.saving}/>
         {p.editingEvent ? <Text style={styles.hint}>Event codes cannot be changed after creation.</Text> : null}
@@ -129,6 +131,7 @@ export default function TeacherEventForm(p: Props) {
             );
           })}
         </View>
+        {p.stampSection ?? <View style={styles.passportPreview}><Ionicons name="ribbon-outline" size={20} color={COLORS.primary}/><View style={{flex:1}}><Text style={styles.passportPreviewTitle}>Event Passport</Text><Text style={styles.passportPreviewCaption}>{p.editingEvent?.stamp_collection_id ? 'This event has an Admin-assigned signature stamp.' : 'Students automatically earn a regular event stamp after a verified check-in.'}</Text></View></View>}
       </View>
 
       {p.editTarget ? p.isAndroid ? (
@@ -275,6 +278,7 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 11, fontWeight: '800', color: COLORS.primary },
   chipTextSelected: { color: '#FFFFFF' },
   lateHint: { marginTop: -3, marginBottom: 8, fontSize: 10, lineHeight: 15, color: COLORS.textSecondary },
+  passportPreview:{flexDirection:'row',alignItems:'center',gap:10,marginTop:17,padding:12,backgroundColor:COLORS.primarySoft,borderRadius:13},passportPreviewTitle:{fontSize:11,fontWeight:'800',color:COLORS.primary},passportPreviewCaption:{fontSize:10,lineHeight:15,color:COLORS.textSecondary,marginTop:3},
   pickerContainer: { backgroundColor: COLORS.card, borderRadius: 17, borderWidth: 1, borderColor: COLORS.border, marginBottom: 15, padding: 12 },
   pickerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pickerTitle: { fontWeight: '800', fontSize: 12, color: COLORS.textPrimary },

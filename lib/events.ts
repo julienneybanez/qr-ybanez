@@ -18,6 +18,7 @@ export type Event = {
   start: string;
   end: string;
   lateAfterMinutes: number;
+  stampCollectionId?: string | null;
 };
 
 export type EventUpdate = {
@@ -27,6 +28,7 @@ export type EventUpdate = {
   start: string;
   end: string;
   lateAfterMinutes: number;
+  stampCollectionId?: string | null;
 };
 
 export type CloudEvent = {
@@ -39,6 +41,7 @@ export type CloudEvent = {
   start_time: string | null;
   end_time: string | null;
   late_after_minutes: number;
+  stamp_collection_id?: string | null;
   created_by: string | null;
   created_at: string;
 };
@@ -176,6 +179,8 @@ export async function createEvent(
 
         status: 'open',
 
+        ...(event.stampCollectionId ? { stamp_collection_id: event.stampCollectionId } : {}),
+
         created_by:
           user.id,
       })
@@ -244,6 +249,7 @@ export async function updateEvent(
 
         late_after_minutes:
           updates.lateAfterMinutes,
+        ...(updates.stampCollectionId !== undefined ? { stamp_collection_id: updates.stampCollectionId } : {}),
       })
       .eq('id', eventId)
       .select('*')
