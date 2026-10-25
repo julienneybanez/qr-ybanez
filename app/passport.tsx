@@ -75,7 +75,10 @@ export default function PassportScreen() {
                 <View style={styles.track}><View style={[styles.fill, { width: `${progress}%` as `${number}%` }]}/></View>
                 <Text style={styles.muted}>Special collections are earned through verified attendance.</Text>
               </View>
-              <View style={styles.sectionTop}><Text style={styles.sectionTitle}>Signature Collections</Text><Text style={styles.sectionCaption}>Limited annual editions</Text></View>
+              <View style={styles.sectionTop}>
+                <Text style={styles.sectionTitle}>Signature Collections</Text>
+                <Text style={styles.sectionCaption}>Limited annual editions</Text>
+              </View>
               {data.signature.length ? (
                 <View style={styles.grid}>{data.signature.map(stamp =>
                   <View key={stamp.key} style={styles.gridItem}><StampCard stamp={stamp} onPress={() => setSelected(stamp)}/></View>
@@ -83,7 +86,10 @@ export default function PassportScreen() {
               ) : (
                 <View style={styles.empty}><Ionicons name="albums-outline" color={COLORS.primary} size={25}/><Text style={styles.muted}>No published collections yet.</Text></View>
               )}
-              <View style={styles.sectionTop}><Text style={styles.sectionTitle}>Everyday Memories</Text><Text style={styles.sectionCaption}>{data.regular.length} collected</Text></View>
+              <View style={styles.sectionTop}>
+                <Text style={styles.sectionTitle}>Event Memories</Text>
+                <Text style={styles.sectionCaption}>{data.regular.length} collected</Text>
+              </View>
               {data.regular.length ? (
                 <View style={styles.grid}>{data.regular.map(stamp =>
                   <View key={stamp.key} style={styles.gridItem}><StampCard stamp={stamp} compact onPress={() => setSelected(stamp)}/></View>
@@ -99,21 +105,47 @@ export default function PassportScreen() {
       <Modal visible={!!selected} animationType="fade" transparent onRequestClose={() => setSelected(null)}>
         <View style={styles.modalShade}>
           <View style={styles.modalCard}>
-            <View style={styles.modalTop}><Text style={styles.modalTitle}>Stamp Details</Text>
-              <Pressable accessibilityLabel="Close details" onPress={() => setSelected(null)}><Ionicons name="close" color={COLORS.textSecondary} size={23}/></Pressable>
+            <View style={styles.modalTop}>
+              <Text style={styles.modalTitle}>Stamp Details</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close details" hitSlop={12} onPress={() => setSelected(null)}>
+                <Ionicons name="close" color={COLORS.textSecondary} size={23}/>
+              </Pressable>
             </View>
-            {selected ? <>
-              <View style={styles.modalStamp}><StampCard stamp={selected}/></View>
-              <Text style={styles.detailTitle}>{selected.title}</Text>
-              {selected.earnedAt ? <>
-                <Text style={styles.detailStatus}><Ionicons name="checkmark-circle" color={COLORS.success}/> Collected</Text>
-                <Text style={styles.detailText}>Earned: {new Date(selected.earnedAt).toLocaleString()}</Text>
-                {selected.eventTitle ? <Text style={styles.detailText}>First qualifying event: {selected.eventTitle}</Text> : null}
-                {selected.venue ? <Text style={styles.detailText}>Venue: {selected.venue}</Text> : null}
-                {selected.eventIds.length > 1 ? <Text style={styles.detailText}>{selected.eventIds.length} qualifying events in this collection</Text> : null}
-              </> : <Text style={styles.detailText}>Locked. Attend an eligible event to collect this commemorative stamp.</Text>}
-            </> : null}
-            <Pressable style={styles.done} onPress={() => setSelected(null)}><Text style={styles.doneText}>Done</Text></Pressable>
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {selected ? (
+                <>
+                  <View style={styles.modalStamp}>
+                    <StampCard stamp={selected} showCaption={false}/>
+                  </View>
+                  <Text style={styles.detailTitle}>{selected.title}</Text>
+                  {selected.earnedAt ? (
+                    <>
+                      <View style={styles.detailStatusRow}>
+                        <Ionicons name="checkmark-circle" color={COLORS.success} size={17}/>
+                        <Text style={styles.detailStatus}>Collected</Text>
+                      </View>
+                      <Text style={styles.detailText}>Earned: {new Date(selected.earnedAt).toLocaleString()}</Text>
+                      {selected.eventTitle ? <Text style={styles.detailText}>First qualifying event: {selected.eventTitle}</Text> : null}
+                      {selected.venue ? <Text style={styles.detailText}>Venue: {selected.venue}</Text> : null}
+                      {selected.eventIds.length > 1 ? <Text style={styles.detailText}>{selected.eventIds.length} qualifying events in this collection</Text> : null}
+                    </>
+                  ) : (
+                    <View style={styles.lockedMessage}>
+                      <Ionicons name="lock-closed-outline" color={COLORS.textSecondary} size={16}/>
+                      <Text style={styles.lockedMessageText}>Attend an eligible event to collect this commemorative stamp.</Text>
+                    </View>
+                  )}
+                </>
+              ) : null}
+            </ScrollView>
+            <Pressable accessibilityRole="button" style={styles.done} onPress={() => setSelected(null)}>
+              <Text style={styles.doneText}>Done</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -143,11 +175,11 @@ const styles = StyleSheet.create({
   summaryPillText: { color: COLORS.primary, fontSize: 10, fontWeight: '800' },
   track: { height: 7, backgroundColor: '#E6EAF1', borderRadius: 6, overflow: 'hidden', marginTop: 12, marginBottom: 8 },
   fill: { height: '100%', backgroundColor: '#2C9C81', borderRadius: 6 },
-  sectionTop: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 24, marginBottom: 13 },
-  sectionTitle: { fontSize: 15, fontWeight: '900', color: COLORS.textPrimary },
+  sectionTop: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 8, rowGap: 4, marginTop: 24, marginBottom: 13 },
+  sectionTitle: { fontSize: 15, fontWeight: '900', color: COLORS.textPrimary, flexShrink: 1 },
   sectionCaption: { fontSize: 10, color: COLORS.textSecondary },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 16 },
-  gridItem: { width: '47.5%' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 15, alignItems: 'flex-start' },
+  gridItem: { width: '48%', minWidth: 0 },
   empty: { backgroundColor: COLORS.card, borderRadius: 17, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 9 },
   emptyTitle: { fontWeight: '800', fontSize: 13, color: COLORS.textPrimary },
   muted: { color: COLORS.textSecondary, fontSize: 11, lineHeight: 17, textAlign: 'center' },
@@ -155,14 +187,19 @@ const styles = StyleSheet.create({
   errorBox: { marginTop: 15, padding: 13, borderRadius: 14, backgroundColor: COLORS.dangerSoft, flexDirection: 'row', gap: 8 },
   error: { flex: 1, color: COLORS.danger, fontSize: 12 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 22, backgroundColor: COLORS.background },
-  modalShade: { flex: 1, backgroundColor: 'rgba(8,18,42,.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 22 },
-  modalCard: { width: '100%', maxWidth: 420, backgroundColor: COLORS.card, borderRadius: 22, padding: 20, alignItems: 'center' },
-  modalTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', alignSelf: 'stretch', marginBottom: 13 },
-  modalTitle: { color: COLORS.textPrimary, fontWeight: '800', fontSize: 16 },
-  modalStamp: { width: 178, marginBottom: 12 },
-  detailTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '900', textAlign: 'center', marginTop: 2 },
-  detailStatus: { color: COLORS.success, fontWeight: '800', fontSize: 12, marginTop: 9, marginBottom: 4 },
-  detailText: { fontSize: 11, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 17, marginTop: 5 },
-  done: { marginTop: 18, width: '100%', height: 44, backgroundColor: COLORS.primary, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  modalShade: { flex: 1, backgroundColor: 'rgba(8,18,42,.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 20 },
+  modalCard: { width: '100%', maxWidth: 420, maxHeight: '88%', backgroundColor: COLORS.card, borderRadius: 22, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 18, alignItems: 'stretch', overflow: 'hidden' },
+  modalTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  modalTitle: { color: COLORS.textPrimary, fontWeight: '800', fontSize: 18 },
+  modalScroll: { width: '100%', flexShrink: 1 },
+  modalScrollContent: { alignItems: 'center', paddingBottom: 10, paddingHorizontal: 3 },
+  modalStamp: { width: 196, maxWidth: '100%', alignSelf: 'center', marginBottom: 16 },
+  detailTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '900', textAlign: 'center', lineHeight: 21, marginBottom: 8 },
+  detailStatusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 },
+  detailStatus: { color: COLORS.success, fontWeight: '800', fontSize: 12 },
+  detailText: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 19, marginTop: 7 },
+  lockedMessage: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 7, paddingHorizontal: 10, marginTop: 4 },
+  lockedMessageText: { flexShrink: 1, fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 19 },
+  done: { marginTop: 10, width: '100%', minHeight: 48, backgroundColor: COLORS.primary, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   doneText: { color: '#FFFFFF', fontWeight: '800', fontSize: 12 },
 });
